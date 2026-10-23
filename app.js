@@ -4,7 +4,7 @@ const msg = document.getElementById('msg'), sendB = document.getElementById('sen
 const footer = document.querySelector('footer'), recT = document.getElementById('recT');
 const sheet = document.getElementById('sheet'), shade = document.getElementById('shade'), pop = document.getElementById('pop');
 
-let S = { size: '', lang: 'عربي', meal: null };
+let S = { size: '', lang: 'عربي', meal: null, meals: [] };
 let H = []; // ذاكرة المحادثة للذكاء الاصطناعي
 const API = { ok: false, ai: false, engine: false };
 const healthP = fetch('/api/health').then(r => r.ok ? r.json() : null).then(j => { if (j) { API.ok = true; API.ai = !!j.ai; API.engine = !!j.engine } }).catch(() => {});
@@ -63,10 +63,52 @@ async function api(path, body, ms = 45000) {
 const blobToB64 = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(b) });
 
 /* ---------- البداية ---------- */
-const COOK = { 'عربي': 'اطبخي اليوم <b>5 أكواب رز</b> بدل 6.', 'English': 'Cook <b>5 cups of rice</b> today, not 6.', 'Tagalog': 'Magluto ng <b>5 tasang kanin</b> ngayon, hindi 6.', 'اردو': 'آج <b>5 کپ چاول</b> پکائیں، 6 نہیں۔', 'हिन्दी': 'आज <b>5 कप चावल</b> पकाएँ, 6 नहीं।', 'বাংলা': 'আজ <b>৫ কাপ চাল</b> রান্না করুন, ৬ নয়।', 'Indonesia': 'Masak <b>5 gelas beras</b> hari ini, bukan 6.' };
+// رسالة الطباخ الاحتياطية (لو فشل طلب الذكاء الاصطناعي): الرقم محسوب من وجبات المستخدم
+const COOK = {
+  'عربي': x => `قلّلي كمية الرز <b>${x} كوب</b> في كل وجبة.`,
+  'English': x => `Please cook <b>${x} cup(s) less rice</b> per meal.`,
+  'Tagalog': x => `Magluto ng <b>${x} tasa na mas kaunting kanin</b> bawat luto.`,
+  'اردو': x => `ہر کھانے میں <b>${x} کپ چاول کم</b> پکائیں۔`,
+  'हिन्दी': x => `हर बार <b>${x} कप कम चावल</b> पकाएँ।`,
+  'বাংলা': x => `প্রতিবার <b>${x} কাপ কম চাল</b> রান্না করুন।`,
+  'Indonesia': x => `Masak <b>${x} gelas beras lebih sedikit</b> setiap kali.`,
+};
+const cookFallback = (lang, cups, name) => cups ? (COOK[lang] || COOK['English'])(cups) : (lang === 'عربي' ? `قلّلي كمية ${esc(name)} شوي في الطبخات الجاية.` : `Please cook a bit less ${esc(name)} next time.`);
+const cupsTxt = x => { const w = Math.floor(x), h = x % 1 ? ' ونص' : ''; return x === .5 ? 'نص كوب' : w === 1 ? 'كوب' + h : w === 2 ? 'كوبين' + h : w + ' أكواب' + h };
+async function cookMsg(rec, fb) {
+  if (API.ai) { try { const j = await api('/api/chat', { mode: 'cook', lang: S.lang, text: rec }, 15000); if (j && j.text) return esc(j.text) } catch (e) {} }
+  return fb;
+}
+
+/* ---------- سجل الوجبات (بيانات حقيقية من التحليل) ---------- */
+const RICE_RE = /رز|أرز|كبسة|مندي|مضغوط|برياني|مقلوبة|مجبوس/;
+const isRice = n => RICE_RE.test(String(n));
+const mealG = m => (m.items || []).reduce((s, i) => s + (Number(i.grams) || 0), 0);
+function recordMeal(j) {
+  const m = { ...j, items: (j.items || []).map(i => ({ ...i })), ts: Date.now(), fridge: false, status: null, donated: false };
+  S.meals.push(m); if (S.meals.length > 60) S.meals = S.meals.slice(-60);
+  S.meal = m; return m;
+}
+function weeklyStats() {
+  const ms = S.meals.filter(m => (m.items || []).length), n = ms.length; if (!n) return null;
+  const riceG = ms.reduce((s, m) => s + m.items.filter(i => isRice(i.name)).reduce((a, i) => a + (Number(i.grams) || 0), 0), 0);
+  const cups = Math.round(riceG / n / 600 * 2) / 2;
+  const agg = {}; ms.forEach(m => m.items.forEach(i => { agg[i.name] = (agg[i.name] || 0) + (Number(i.grams) || 0) }));
+  const top = Object.entries(agg).sort((a, b) => b[1] - a[1])[0];
+  return { n, riceG, cups, top };
+}
+function monthStats() {
+  let saved = 0, val = 0, don = 0;
+  for (const m of S.meals) {
+    const g = mealG(m), v = Number(m.total_value_sar) || 0;
+    if (m.donated) { don += m.donatedG != null ? m.donatedG : g; saved += g; val += v }
+    else { const f = m.status === 'full' ? 1 : m.status === 'half' ? .5 : 0; saved += g * f; val += v * f }
+  }
+  return { n: S.meals.length, saved, val, don };
+}
 
 async function start() {
-  H = []; S = { size: '', lang: 'عربي', meal: null }; chat.innerHTML = ''; last = '';
+  H = []; S = { size: '', lang: 'عربي', meal: null, meals: [] }; chat.innerHTML = ''; last = '';
   await Promise.race([healthP, wait(1500)]);
   day('اليوم');
   note(API.ai
@@ -142,16 +184,16 @@ function mealSummary(m) { if (!m || !m.items) return ''; return m.items.map(i =>
 
 async function showResult(j) {
   if (!j || !Array.isArray(j.items) || !j.items.length) { them('ما قدرنا نتعرف على أكل في الصورة 🤔\nصوّروا الصحن كامل من فوق وبإضاءة واضحة، وجربوا مرة ثانية.'); return }
-  S.meal = j;
-  const lines = j.items.map(i => `• ${esc(i.name)}: حوالي <b>${Math.round(i.grams)} جم</b> (${SAR(i.value_sar)} ريال)`).join('\n');
+  recordMeal(j);
+  const lines = j.items.map(i => `• ${esc(i.name)}${i.state === 'سليم' ? ' (ما انلمس)' : ''}: حوالي <b>${Math.round(i.grams)} جم</b> (${SAR(i.value_sar)} ريال)`).join('\n');
   const soon = j.items.map(i => i.safe_until).filter(Boolean).sort()[0];
   const sv = Number(j.servings_left) || 0;
-  let h = `بالعافية عليكم 🍽️\n<b>رصدنا في السفرة:</b>\n${lines}\n\n💰 إجمالي القيمة: <b>${SAR(j.total_value_sar)} ريال</b>\n👥 تكفي تقريبًا: <b>${sv >= 1 ? sv + (sv === 1 ? ' شخص' : sv <= 10 ? ' أشخاص' : ' شخص') : 'أقل من حصة'}</b>`;
+  let h = (j.dish_name ? `🍽️ <b>${esc(j.dish_name)}</b>\n` : '') + `بالعافية عليكم 🍽️\n<b>رصدنا في السفرة:</b>\n${lines}\n\n💰 إجمالي القيمة: <b>${SAR(j.total_value_sar)} ريال</b>\n👥 تكفي تقريبًا: <b>${sv >= 1 ? sv + (sv === 1 ? ' شخص' : sv <= 10 ? ' أشخاص' : ' شخص') : 'أقل من حصة'}</b>`;
   const w = soon && whenTxt(soon); if (w) h += `\n⏰ الأفضل تستخدمونه قبل: <b>${w}</b>`;
   if (j.next_day_suggestion) h += `\n\n💡 اقتراح بكرة: <b>${esc(j.next_day_suggestion)}</b>`;
   them(h);
-  const tg = j.items.reduce((x, i) => x + (Number(i.grams) || 0), 0);
-  if (j.charity_suggestion || tg >= 3000) { await bot('باقي عندكم كمية كبيرة 🍲\nهل هذا الأكل <b>تقدّم على السفرة</b>، ولا باقي في القدور ما أحد أكل منه؟', 900); btns([['باقي في القدور', served, /^لا|باقي|بالقدور|في القدور|ما تقد|ما انقد|محد|ما أحد|ما احد|ما أكل منه|ما اكل منه|ما انلمس/], ['تقدّم على السفرة', homePlan, /^(نعم|ايه|إيه|اي|أي)(\s|$)|^تقد|انقد|قدمناه|قدّمناه|حطيناه على|أكلوا منه|اكلوا منه/]]) }
+  const tg = mealG(j), allSalim = j.items.every(i => i.state === 'سليم');
+  if (j.charity_suggestion || tg >= 3000 || (allSalim && tg >= 1500)) { await bot('باقي عندكم كمية كبيرة 🍲\nهل هذا الأكل <b>تقدّم على السفرة</b>، ولا باقي في القدور ما أحد أكل منه؟', 900); btns([['باقي في القدور', served, /^لا|باقي|بالقدور|في القدور|ما تقد|ما انقد|محد|ما أحد|ما احد|ما أكل منه|ما اكل منه|ما انلمس/], ['تقدّم على السفرة', homePlan, /^(نعم|ايه|إيه|اي|أي)(\s|$)|^تقد|انقد|قدمناه|قدّمناه|حطيناه على|أكلوا منه|اكلوا منه/]]) }
   else btns([['دخل الثلاجة ✅', fridge]]);
 }
 
@@ -164,7 +206,7 @@ async function photoScripted(p, already) {
     showResult({ items: [{ name: 'رز', grams: 640, value_sar: 8, safe_until: new Date(Date.now() + 864e5).toISOString().replace(/T.*/, 'T14:00') }, { name: 'دجاج', grams: 210, value_sar: 8, safe_until: new Date(Date.now() + 3 * 864e5).toISOString() }], total_value_sar: 16, servings_left: 3, next_day_suggestion: 'كبسة باقية بالخضار' });
   } else if (p === 'pots') {
     if (!already) { me('<div class="pots">قدور العزيمة</div>', 'media'); remember('user', '[أرسل صورة القدور]'); await wait(300); await bot('ثواني نحلل الصورة… 🔍', 600) }
-    S.meal = { items: [{ name: 'رز', grams: 6000, value_sar: 72 }, { name: 'لحم', grams: 3000, value_sar: 210 }], total_value_sar: 282, servings_left: 30, charity_suggestion: true };
+    recordMeal({ items: [{ name: 'رز', grams: 6000, value_sar: 72 }, { name: 'لحم', grams: 3000, value_sar: 210 }], total_value_sar: 282, servings_left: 30, charity_suggestion: true });
     await bot('باقي عندكم كمية كبيرة: تقريبًا <b>6 كجم رز</b> و<b>3 كجم لحم</b> 🍲\nهل هذا الأكل <b>تقدّم على السفرة</b>، ولا باقي في القدور ما أحد أكل منه؟', 1300);
     btns([['باقي في القدور', served, /^لا|باقي|بالقدور|في القدور|ما تقد|ما انقد|محد|ما أحد|ما احد|ما أكل منه|ما اكل منه|ما انلمس/], ['تقدّم على السفرة', homePlan, /^(نعم|ايه|إيه|اي|أي)(\s|$)|^تقد|انقد|قدمناه|قدّمناه|حطيناه على|أكلوا منه|اكلوا منه/]]);
   } else {
@@ -174,31 +216,45 @@ async function photoScripted(p, already) {
 }
 
 /* ---------- المتابعة ---------- */
-const M = () => S.meal || { items: [{ name: 'رز', grams: 640, value_sar: 8 }, { name: 'دجاج', grams: 210, value_sar: 8 }], servings_left: 3, next_day_suggestion: 'كبسة باقية بالخضار' };
 async function fridge() {
+  if (S.meal) S.meal.fridge = true;
   if (S.meal && S.meal.meal_id && API.ok) api('/api/analyze', { action: 'fridge', meal_id: S.meal.meal_id }, 15000).catch(() => {});
   await bot('ممتاز! 👏 سجّلنا إنه دخل الثلاجة، وبنذكّركم بكرة الصبح باللي عندكم.');
   skip('صباح اليوم التالي', morning);
 }
 async function morning() {
-  const m = M(); const names = m.items.map(i => i.name).join(' و'); const sv = Math.max(1, Number(m.servings_left) || 1);
-  const rice = m.items.some(i => /رز|أرز/.test(i.name));
+  const m = S.meal; if (!m) return bot('ما عندنا وجبة محللة للحين 📷 أرسلوا صورة أول.');
+  const names = m.items.map(i => `${esc(i.name)} (${Math.round(i.grams)} جم)`).join(' و'); const sv = Math.max(1, Number(m.servings_left) || 1);
+  const rice = m.items.some(i => isRice(i.name));
   day('اليوم التالي · 11:00 ص');
-  await bot(`صباح الخير ☀️\nعندكم في الثلاجة <b>${esc(names)}</b> يكفي تقريبًا <b>${sv}</b>.\nاقتراح الغداء: <b>${esc(m.next_day_suggestion || 'طبق من البواقي مع سلطة')}</b> 🍲` + (rice ? '\nوبكذا ما تحتاجون تطبخون رز اليوم.' : ''));
+  await bot(`صباح الخير ☀️\nعندكم في الثلاجة <b>${names}</b> يكفي تقريبًا <b>${sv}</b>.` + (m.next_day_suggestion ? `\nاقتراح الغداء: <b>${esc(m.next_day_suggestion)}</b> 🍲` : '') + (rice ? '\nوبكذا ما تحتاجون تطبخون رز اليوم.' : ''));
   btns([['تمام، بنسويها 👍', async () => { await bot('بالعافية مقدمًا 🌿'); skip('نهاية مدة الحفظ', closeQ) }], ['عندي سؤال', async () => { await bot(API.ai ? 'تفضّل، اكتب سؤالك أو أرسله بصوتك 🎙️' : 'اكتب سؤالك تحت 👇 (مثال: «كيف أسخّن الرز؟»)') }]]);
 }
 async function closeQ() {
-  const m = M(); const i0 = m.items.find(i => /رز|أرز/.test(i.name)) || m.items[0];
-  day('بعد يوم'); await bot(`وش صار على <b>${esc(i0.name)}</b>؟`);
-  btns([['أُكل ✅', async () => { await bot(`ممتاز! 🎉 أنقذتوا <b>${Math.round(i0.grams)} جم</b> ووفّرتوا <b>${SAR(i0.value_sar)} ريال</b>.`); weekly() }, /^(أُ?كل|اكل|انأكل|أكلناه|اكلناه|خلص|انتهى|كله|كامل)/],
-  ['نصفه', async () => { await bot('حلو 👌 أنقذتوا نصفه. المرة الجاية جربوه بطبخة الصبح بدري.'); weekly() }, /^(نص|نصه|بعضه|شوي|جزء)/],
-  ['رُمي 🗑️', async () => { await bot('ولا يهمكم 🙏 للتخلص الصحيح: افصلوا الأكل عن البلاستيك والكرتون، وحطوه في كيس محكم.\nوهذا بالضبط اللي بيساعدنا فيه «مقدار» 👇'); weekly() }, /رمي|رميناه|انرمى|زبال|خرب|فسد/]], true);
+  const m = S.meal; if (!m) return;
+  const g = mealG(m), v = SAR(m.total_value_sar), label = m.dish_name || m.items.map(i => i.name).join(' و');
+  day('بعد يوم'); await bot(`وش صار على <b>${esc(label)}</b>؟`);
+  btns([['أُكل ✅', async () => { m.status = 'full'; await bot(`ممتاز! 🎉 أنقذتوا <b>${Math.round(g)} جم</b> ووفّرتوا <b>${v} ريال</b>.`); weekly() }, /^(أُ?كل|اكل|انأكل|أكلناه|اكلناه|خلص|انتهى|كله|كامل)/],
+  ['نصفه', async () => { m.status = 'half'; await bot(`حلو 👌 أنقذتوا تقريبًا <b>${Math.round(g / 2)} جم</b> (${Math.round(v / 2)} ريال). المرة الجاية جربوه بطبخة الصبح بدري.`); weekly() }, /^(نص|نصه|بعضه|شوي|جزء)/],
+  ['رُمي 🗑️', async () => { m.status = 'thrown'; await bot('ولا يهمكم 🙏 للتخلص الصحيح: افصلوا الأكل عن البلاستيك والكرتون، وحطوه في كيس محكم.\nوهذا بالضبط اللي بيساعدنا فيه «مقدار» 👇'); weekly() }, /رمي|رميناه|انرمى|زبال|خرب|فسد/]], true);
 }
 function weekly() {
   skip('آخر الأسبوع', async () => {
     day('آخر الأسبوع');
-    await bot('📊 <b>مقدار الأسبوع</b>\nالرز يزيد عندكم تقريبًا <b>كوب كل غداء</b>.\nالكمية المناسبة: <b>5 أكواب بدل 6</b> 🍚');
-    await bot('<img src="cups.jpg" alt="5 أكواب">رسالة جاهزة للطباخ (' + S.lang + '):\n' + COOK[S.lang], 1100);
+    const w = weeklyStats();
+    if (!w) { await bot('ما عندنا وجبات محللة للحين 📷 أرسلوا لنا صور وجباتكم أول، وبعدها نحسب لكم الكمية المناسبة.'); return btns([['📷 أرسل صورة', openSheet]]) }
+    const meals = `من ${w.n} ${w.n === 1 ? 'وجبة' : 'وجبات'} حللناها`;
+    if (w.riceG > 0 && w.cups < .5) { await bot(`📊 <b>مقدار الأسبوع</b>\nما لقينا زيادة واضحة في الرز ${meals} 👌 كمّلوا على نفس الكمية.`); return btns([['🎉 عندنا عزيمة', gath]]) }
+    if (w.riceG > 0) {
+      await bot(`📊 <b>مقدار الأسبوع</b>\nالرز يزيد عندكم تقريبًا <b>${cupsTxt(w.cups)}</b> في كل وجبة (${meals}).\nالتوصية: قلّلوا كمية الرز <b>${cupsTxt(w.cups)}</b> 🍚`);
+      const cm = await cookMsg(`قلّلوا كمية الرز المطبوخ بمقدار ${cupsTxt(w.cups)} في كل وجبة`, cookFallback(S.lang, w.cups));
+      await bot('<img src="cups.jpg" alt="' + cupsTxt(w.cups) + '">رسالة جاهزة للطباخ (' + S.lang + '):\n' + cm, 1100);
+    } else {
+      const [name, g] = w.top;
+      await bot(`📊 <b>مقدار الأسبوع</b>\nأكثر صنف يزيد عندكم هو <b>${esc(name)}</b>: حوالي <b>${Math.round(g)} جم</b> (${meals}).\nالتوصية: قلّلوا كميته شوي في الطبخات الجاية.`);
+      const cm = await cookMsg(`قلّلوا كمية ${name} شوي في الطبخات الجاية`, cookFallback(S.lang, null, name));
+      await bot('رسالة جاهزة للطباخ (' + S.lang + '):\n' + cm, 1100);
+    }
     btns([['أرسلها للطباخ ↪️', async () => { await bot('تم ✅ أرسلها لمن يطبخ عندكم.\nوإذا عندكم مناسبة اكتبوا «عزيمة» 🎉'); btns([['🎉 عندنا عزيمة', gath]]) }]]);
   });
 }
@@ -295,12 +351,17 @@ async function showCharity() {
   btns([['✅ تواصلنا واتفقنا', donated, /تواصل|اتفق|تم|خلاص|كلمناهم|كلّمناهم/], ['🔄 جمعية ثانية', () => { NI++; showCharity() }, /ثاني|غير|ما رد|مارد|ما ردوا/]]);
 }
 async function donated() {
+  const m = S.meal; if (m && !m.donated && !m.status) { m.donated = true; m.donatedG = mealG(m) }
   await bot('جزاكم الله خير 🤍 أكلكم بيوصل لأسر محتاجة، وسجّلنا الكمية في أثر أسرتكم هذا الشهر.\n<span class="err">(في المرحلة الجاية يوصل الطلب لنظام الجمعية مباشرة عبر API بدون اتصال)</span>');
   skip('آخر الشهر', monthly);
 }
 async function loc() { return findCharity() }
 async function monthly() {
-  day('نهاية الشهر'); await bot('📊 <b>ملخص شهركم مع سُفرة</b>\n💰 وفّرتوا: <b>140 ريال</b>\n🍽️ أنقذتوا: <b>9 كجم</b> أكل\n🤝 تبرعتوا: <b>9 كجم</b> لجمعية\n🏆 أفضل أسبوع: الثاني\n\nكل لقمة تفرق 🌿');
+  day('نهاية الشهر');
+  const ms = monthStats();
+  if (!ms.n) { await bot('ما عندنا وجبات محللة للحين 📷 أرسلوا لنا صور وجباتكم أول، وبعدها نطلع لكم ملخص شهركم.'); return btns([['📷 أرسل صورة', openSheet]]) }
+  const sk = ms.saved / 1000;
+  await bot(`📊 <b>ملخص شهركم مع سُفرة</b>\n🍽️ وجبات حللناها: <b>${ms.n}</b>\n💰 وفّرتوا: <b>${SAR(ms.val)} ريال</b>\n🌿 أنقذتوا: <b>${kg(sk)} كجم</b> أكل\n🤝 تبرعتوا: <b>${kg(ms.don / 1000)} كجم</b> لجمعية\n\n📈 توقّع لو استمر نفس النمط شهر كامل: تقريبًا <b>${kg(sk * 4.3)} كجم</b> و<b>${SAR(ms.val * 4.3)} ريال</b>\n🌍 تقريبًا <b>${kg(sk * 2.5)} كجم</b> كربون تجنبتوه (تقديري)` + (sk ? '\n\nكل لقمة تفرق 🌿' : '\n\nما سجلنا أكل أنقذتوه للحين: لما تقولون لنا إنه أُكل أو تبرعتوا فيه ينحسب.'));
   btns([['📲 أضف إنجازنا في لتدوم', async () => { await bot('هذي الخطوة الجاية في سُفرة 🤝 نقترح على لتدوم إن ملخص شهركم ينضاف تلقائيًا لحسابكم في تطبيق لتدوم، عشان يجتمع وعيكم وأثركم في مكان واحد.\n<span class="err">(ميزة مقترحة، ما هي مفعّلة في هذي النسخة)</span>'); await litadoomCard('وللحين تقدرون تحمّلون تطبيق لتدوم وتتابعون محتواه 👇'); btns([['🔁 ابدأ من جديد', start]]) }], ['🔁 ابدأ من جديد', start]]);
 }
 

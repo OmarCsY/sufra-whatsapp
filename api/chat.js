@@ -1,8 +1,9 @@
 // محادثة البوت: نص أو رسالة صوتية ← Gemini ← رد قصير بأسلوب واتساب
 const { gemini, parseJSON } = require('./_gemini');
+const { saudi, limited } = require('./_util');
 
-const KINDS = { size: 'عدد أفراد البيت', lang: 'لغة الشخص اللي يطبخ', guests: 'عدد الضيوف في العزيمة', city: 'اسم مدينة المستخدم' };
-const ACTIONS = ['litadoom', 'charity', 'gathering', 'photo', 'restart', 'choose', 'answer'];
+const KINDS = { size: 'عدد أفراد البيت', lang: 'لغة الشخص اللي يطبخ', guests: 'عدد الضيوف في العزيمة', city: 'اسم مدينة المستخدم', name: 'اسم الصنف أو الطبق الصحيح (اكتبه في value بشكل قصير بالاسم السعودي)' };
+const ACTIONS = ['litadoom', 'charity', 'gathering', 'photo', 'restart', 'choose', 'answer', 'impact'];
 const SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -29,6 +30,15 @@ function system(p) {
 - لهجة سعودية بيضاء، ودود ومختصر مثل رسائل الواتساب: من سطر إلى 5 أسطر، وإيموجي واحد أو اثنين بحد أقصى.
 - للتغميق ضع الكلمة بين نجمتين *هكذا*. لا تستخدم عناوين أو جداول أو روابط.
 - ردّ بنفس لغة آخر رسالة من المستخدم (عربي أو English أو Tagalog أو اردو...).
+
+أسلوب الكلام (سعودي أبيض):
+- كلمات نستخدمها: وش، ليش، كذا، زين، الحين، بكرة، شوي، أبشر، تم، يعطيك العافية، بالعافية، الله يتمم، عساها عامرة، حيّاك، بعد (بمعنى أيضًا).
+- كلمات ممنوعة: بندورة (نقول طماطم)، كتير، هلق، هيك، عايز، إزيك، ليه، بدّك، منيح، كمان، تمام قوي، أرز (نقول رز).
+- أمثلة على الأسلوب الصحيح:
+  • «أبشر! الرز المطبوخ يدخل الثلاجة خلال ساعتين، وسخّنوه مرة وحدة بس 🍚»
+  • «زين، صوّروا القدور وأرسلوها، وأنا أحسب لكم الكمية الحين 📷»
+  • «يعطيك العافية! الله يتمم عزيمتكم، وعساها عامرة 🌿»
+- لا تخترع أرقامًا أبدًا: الأوزان والقيم والأثر تجي من الوجبات المحللة فقط، وإذا ما فيه بيانات قل للمستخدم يرسل صورة.
 
 وش تسوي سُفرة:
 - المستخدم يصوّر بواقي الوجبة ويرسلها هنا، ومحرك سُفرة يقدّر الأصناف والوزن والقيمة ومدة الحفظ. لا تخترع أوزانًا أو أسعارًا بدون صورة؛ اطلب منه يرسل صورة (زر 📷 تحت).
@@ -65,12 +75,14 @@ function system(p) {
   • gathering: عنده عزيمة أو مناسبة أو ضيوف ويبي يعرف الكميات. إذا ذكر العدد اكتبه في "number" (ولو ذكر مدى مثل 20 إلى 30 اكتب الأصغر في number والأكبر في "number2").
   • photo: يبي يرسل صورة أو يسأل كيف يصوّر.
   • restart: يبي يبدأ من جديد.
+  • impact: يسأل عن أثره أو كم وفّر أو ملخصه أو إنجازاته مع سُفرة (بأي صيغة).
   • choose: لما فيه أزرار معلّقة (مذكورة تحت) والمستخدم يجاوب بكلام معناه أحدها: اكتب رقم الزر في "choice". مثال: لو الزر 1 «باقي في القدور» وكتب «محد لمس الأكل» فهذا choose مع choice=1.
   • answer: لما البوت ينتظر إدخال حر (مذكور تحت) والمستخدم أعطاه القيمة بأي صيغة: اكتبها في "value" (العدد في "number"، واللغة باسمها مثل عربي أو English أو Tagalog أو اردو، والمدينة بالعربي مصحّحة).
-- في choose و answer و charity و gathering و restart خلّ "reply" نص فاضي "" لأن التطبيق يكمل الخطوة بنفسه. أما litadoom و photo فاكتب رد قصير جدًا.
+- الأرقام بالكلام: فهمها واكتبها رقمًا في "number" (مثل «خمسة» = 5، «عشرين» = 20، «ثلاثين تقريبًا» = 30، «درزن» = 12، «نص مية» = 50، «خمسة وعشرين» = 25).
+- في choose و answer و charity و gathering و restart و impact خلّ "reply" نص فاضي "" لأن التطبيق يكمل الخطوة بنفسه. أما litadoom و photo فاكتب رد قصير جدًا.
 - إذا الرسالة سؤال أو كلام ثاني مو إجابة للسؤال المعلّق (مثل «كيف أسخّن الرز» وهو ينتظر عدد الضيوف): جاوبه عادي بدون action (null)، وذكّره بالسؤال المعلّق. لا تحدد action بس لأن فيه سؤال معلّق؛ حدده فقط لو المستخدم نفسه طلبه أو جاوب عليه.
 
-${Array.isArray(p.options) && p.options.length ? 'أزرار البوت المعلّقة الحين:\n' + p.options.slice(0, 6).map((o, i) => (i + 1) + ') ' + String(o).slice(0, 40)).join('\n') + '\n\n' : ''}${KINDS[p.kind] ? 'البوت ينتظر إدخال حر: ' + KINDS[p.kind] + '\n\n' : ''}عن الأسرة: عدد الأفراد ${p.size || 'غير محدد'}، لغة الطباخ ${p.lang || 'عربي'}.${p.meal ? `\nآخر وجبة حللها المحرك: ${String(p.meal).slice(0, 400)}` : ''}
+${Array.isArray(p.options) && p.options.length ? 'أزرار البوت المعلّقة الحين:\n' + p.options.slice(0, 6).map((o, i) => (i + 1) + ') ' + String(o).slice(0, 40)).join('\n') + '\n\n' : ''}${KINDS[p.kind] ? 'البوت ينتظر إدخال حر: ' + KINDS[p.kind] + '\n\n' : ''}عن الأسرة: عدد الأفراد ${p.size || 'غير محدد'}، لغة الطباخ ${p.lang || 'عربي'}.${p.stats ? '\nسجل الأسرة الحقيقي: ' + String(p.stats).slice(0, 300) + ' (لا تذكر أرقامًا غير هذي).' : ''}${p.meal ? `\nآخر وجبة حللها المحرك: ${String(p.meal).slice(0, 400)}` : ''}
 ${p.city ? `مدينة المستخدم: ${String(p.city).slice(0, 40)}\n` : ''}${p.charity ? `أقرب جمعية طلعت له: ${String(p.charity).slice(0, 80)}\n` : ''}${p.pending ? `سؤال البوت المعلّق حاليًا: ${String(p.pending).slice(0, 200)}\n` : ''}الوقت الآن في السعودية: ${nowKSA}.
 
 أرجع JSON فقط بهذا الشكل (action = none لو ما فيه إجراء):
@@ -79,7 +91,20 @@ ${p.city ? `مدينة المستخدم: ${String(p.city).slice(0, 40)}\n` : ''}
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+  if (limited(req, res)) return;
   const b = req.body || {};
+  if (b.mode === 'cook') {
+    const lang = String(b.lang || 'عربي').slice(0, 20), rec = String(b.text || '').slice(0, 300);
+    const ar = /عرب|arab/i.test(lang);
+    try {
+      const { text } = await gemini({
+        contents: [{ role: 'user', parts: [{ text: `اكتب جملة واحدة قصيرة موجهة للطباخ أو الطباخة في البيت بلغة (${lang})${ar ? ' وبلهجة سعودية بيضاء' : ''} تنقل هذي التوصية بالضبط بدون أي أرقام أو معلومات جديدة: «${rec}».\nأرجع الجملة فقط بدون علامات تنصيص أو مقدمات.` }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
+      }, { timeout: 12000 });
+      const t = text.trim().replace(/^["«“]+|["»”]+$/g, '').slice(0, 300);
+      return res.status(200).json({ text: t ? (ar ? saudi(t) : t) : null });
+    } catch (e) { return res.status(200).json({ text: null }); }
+  }
   if (b.mode === 'city') {
     const t = String(b.text || '').slice(0, 120);
     try {
@@ -123,8 +148,10 @@ module.exports = async (req, res) => {
     }, { timeout: 18000 });
     const j = parseJSON(text) || { reply: text };
     const action = ACTIONS.includes(j.action) ? j.action : null;
-    const reply = String(j.reply || '').trim() || (action ? '' : '…');
-    const buttons = Array.isArray(j.buttons) ? j.buttons.filter(x => typeof x === 'string' && x.trim() && x.length <= 28).slice(0, 3) : [];
+    // نطبّع الرد للأسلوب السعودي إلا لو المستخدم يكلّمنا بلغة ثانية
+    const norm = x => (/[؀-ۿ]/.test(x) ? saudi(x) : x);
+    const reply = norm(String(j.reply || '').trim()) || (action ? '' : '…');
+    const buttons = Array.isArray(j.buttons) ? j.buttons.filter(x => typeof x === 'string' && x.trim() && x.length <= 28).map(norm).slice(0, 3) : [];
     const transcript = j.transcript && j.transcript !== 'null' ? String(j.transcript).slice(0, 1000) : null;
     const str = (x, n) => x && x !== 'null' ? String(x).slice(0, n) : null;
     res.status(200).json({ reply, buttons, action, choice: posInt(j.choice), number: posInt(j.number), number2: posInt(j.number2), value: str(j.value, 60), city: str(j.city, 40), transcript, model });
