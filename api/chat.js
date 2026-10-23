@@ -38,6 +38,7 @@ function system(p) {
   • «أبشر! الرز المطبوخ يدخل الثلاجة خلال ساعتين، وسخّنوه مرة وحدة بس 🍚»
   • «زين، صوّروا القدور وأرسلوها، وأنا أحسب لكم الكمية الحين 📷»
   • «يعطيك العافية! الله يتمم عزيمتكم، وعساها عامرة 🌿»
+- تنبيه: الأسلوب والأمثلة أعلاه للرد بالعربي فقط. إذا كتب المستخدم بالإنجليزي أو أي لغة غير العربي ردّ بنفس لغته (وبأسلوب ودود ومختصر)، ولا تردّ بالعربي أبدًا.
 - لا تخترع أرقامًا أبدًا: الأوزان والقيم والأثر تجي من الوجبات المحللة فقط، وإذا ما فيه بيانات قل للمستخدم يرسل صورة.
 
 وش تسوي سُفرة:
@@ -134,7 +135,8 @@ module.exports = async (req, res) => {
   } else {
     const t = String(b.text || '').trim().slice(0, 1000);
     if (!t) return res.status(400).json({ error: 'empty' });
-    cur.push({ text: t });
+    // رسالة بلغة غير العربي: نذكّر النموذج يردّ بنفس اللغة
+    cur.push({ text: !/[؀-ۿ]/.test(t) && /[A-Za-z]{3,}/.test(t) ? t + '\n\n(Reply in the same language as this message, not in Arabic.)' : t });
   }
   const prev = contents[contents.length - 1];
   if (prev && prev.role === 'user') prev.parts.push(...cur); else contents.push({ role: 'user', parts: cur });
