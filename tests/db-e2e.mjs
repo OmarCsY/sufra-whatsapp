@@ -81,13 +81,27 @@ r = await req('GET', '/api/observatory'); ok('observatory returns aggregates onl
 
 // 5) الأسرة التجريبية
 if (SEED) {
-  r = await req('POST', '/api/seed', { reset: true }, { 'x-seed-secret': SEED }); ok('seed demo family (reset)', r.status === 200 && r.json.counts && r.json.counts.donations === 3, r.txt);
+  r = await req('POST', '/api/seed', { reset: true }, { 'x-seed-secret': SEED }); ok('seed: 61 demo families rebuilt (reset)', r.status === 200 && r.json.families === 61 && r.json.counts.meals > 2000, r.txt);
 } else ok('seed skipped (no SEED_SECRET given)', true);
 r = await req('POST', '/api/seed', {}, { 'x-seed-secret': 'wrong' }); ok('seed with wrong secret -> 401', r.status === 401, r.status);
 r = await req('GET', '/api/dashboard?t=demo');
-ok('demo dashboard is complete', r.status === 200 && r.json.family.is_demo === true && r.json.stats.meals_analyzed >= 30 && r.json.donations.length === 3 && r.json.gatherings.length === 2 && r.json.city_compare === null, r.txt && r.txt.slice(0, 200));
+ok('demo dashboard is complete', r.status === 200 && r.json.family.is_demo === true && r.json.stats.meals_analyzed >= 30 && r.json.donations.length === 3 && r.json.gatherings.length === 3 && r.json.city_compare === null, r.txt && r.txt.slice(0, 200));
 const page = await fetch(BASE + '/d/demo'); const html = await page.text();
 ok('/d/demo page is served', page.status === 200 && html.includes('لوحة أسرتكم') && html.includes('أسرة تجريبية'), page.status);
+// المرصد: بدون هوية، وبدون الأسر التجريبية إلا بطلب
+const O1 = (await req('GET', '/api/observatory?days=30&demo=1')).json, O0 = (await req('GET', '/api/observatory?days=30&demo=0')).json;
+const txt1 = JSON.stringify(O1);
+ok('observatory (demo=1) has data + 61 demo families', O1 && O1.kpis && O1.kpis.meals > 1000 && O1.kpis.families_total >= 61, JSON.stringify(O1 && O1.kpis));
+ok('observatory has no family_id / dash_token / lat / lng / uuid', !/family_id|dash_token|"lat"|"lng"|latitude|longitude/.test(txt1) && !/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(txt1));
+ok('observatory (demo=0) excludes demo families', O0 && O0.kpis && O0.kpis.families_total <= O1.kpis.families_total - 61 && O0.kpis.meals < 100, JSON.stringify(O0 && O0.kpis));
+ok('observatory sections present (matrix, sankey, by_region, behavior)', O1.matrix.length >= 10 && O1.sankey.links.length >= 8 && O1.by_region.length === 13 && O1.behavior_change && O1.behavior_change.change_pct < 0, JSON.stringify(O1.behavior_change));
+ok('regions with <3 families are hidden (no numbers)', O1.by_region.filter(x => x.hidden).every(x => x.kg_observed === undefined));
+const OR = (await req('GET', '/api/observatory?days=90&demo=1&region=' + encodeURIComponent('القصيم'))).json;
+ok('region filter works (القصيم only: بريدة + عنيزة)', OR && OR.region === 'القصيم' && OR.kpis.families_active > 0 && OR.kpis.families_active < O1.kpis.families_active && OR.by_city.every(c => ['بريدة', 'عنيزة', 'مدن أخرى'].includes(c.city)), JSON.stringify(OR && OR.kpis));
+r = await req('GET', '/api/observatory?days=30&demo=1&region=%27%20or%201%3D1'); ok('invalid region ignored safely', r.status === 200 && r.json.region === null, r.status);
+const IN = (await req('GET', '/api/insights?days=30&demo=1')).json;
+ok('insights: 3 insights + 3 campaigns, each with a figure', IN && IN.insights.length === 3 && IN.campaigns.length === 3 && [...IN.insights, ...IN.campaigns].every(x => x.figure && x.text), JSON.stringify(IN).slice(0, 200));
+for (const [path, must] of [['/observatory', 'مرصد سُفرة'], ['/d/demo', 'لوحة أسرتكم']]) { const pg = await fetch(BASE + path); const h = await pg.text(); ok(path + ' page served', pg.status === 200 && h.includes(must), pg.status) }
 r = await req('POST', '/api/track', { family_id: 'x', dash_token: 'demo', type: 'chat' }); ok('demo cannot be written to', r.status === 404 || r.status === 403, r.status);
 
 console.log('\nالنتيجة | الحالة | ملاحظة');

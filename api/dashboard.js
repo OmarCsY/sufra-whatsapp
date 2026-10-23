@@ -21,7 +21,7 @@ module.exports = async (req, res) => {
     const fam = fr && fr[0];
     if (!fam) return res.status(404).json({ error: 'not_found' });
     const id = fam.id, now = Date.now();
-    const since = new Date(now - 29 * 864e5).toISOString().slice(0, 10);
+    const since = new Date(now - 41 * 864e5).toISOString().slice(0, 10);   // 42 يوم: للتقويم الحراري (والرسم الشريطي آخر 30)
     const sel = 'id,dish_name,status,total_grams,total_value_sar,created_at,closed_at,meal_items(id,name,grams,value_sar,safe_until,outcome,state,storage,food_category,cooked_at,stored_at,removed_at,safety_source)';
     const [stR, dailyR, mealsR, donsR, gathR, obsR] = await Promise.all([
       db.select('family_stats', `family_id=eq.${id}&limit=1`),
@@ -38,13 +38,14 @@ module.exports = async (req, res) => {
       kg_donated: r1(s.kg_donated), kg_thrown: r1(s.kg_thrown), kg_leftovers_total: r1(s.kg_leftovers_total),
     };
 
-    // آخر 30 يوم بدون فجوات
-    const byDay = {}; (dailyR || []).forEach(d => { byDay[String(d.day).slice(0, 10)] = d });
-    const daily = [];
-    for (let i = 29; i >= 0; i--) {
-      const day = new Date(now - i * 864e5).toISOString().slice(0, 10), d = byDay[day] || {};
-      daily.push({ day, grams_left: Math.round(Number(d.grams_left) || 0), grams_saved: Math.round(Number(d.grams_saved) || 0) });
+    // آخر 42 يوم بدون فجوات: آخر 30 للرسم الشريطي، وكلها للتقويم الحراري
+    const byDay = {}; (dailyR || []).forEach(x => { byDay[String(x.day).slice(0, 10)] = x });
+    const cal = [];
+    for (let i = 41; i >= 0; i--) {
+      const day = new Date(now - i * 864e5).toISOString().slice(0, 10), x = byDay[day] || {};
+      cal.push({ day, grams_left: Math.round(Number(x.grams_left) || 0), grams_saved: Math.round(Number(x.grams_saved) || 0) });
     }
+    const daily = cal.slice(12);
 
     const meals = (mealsR || []).map(m => ({ ...m, meal_items: m.meal_items || [] }));
     const donByMeal = {}; (donsR || []).forEach(x => { if (x.meal_id) donByMeal[x.meal_id] = x });
@@ -101,6 +102,24 @@ module.exports = async (req, res) => {
       avg_meals: r1(Number(o.meals) / Number(o.families)), you_leftover_kg: stats.kg_leftovers_total, you_meals: stats.meals_analyzed,
     } : null;
 
+    // «تغيّركم»: متوسط جرامات الوجبة في أول أسبوع مقابل آخر أسبوع (فترة 14 يوم فأكثر من استخدامكم)
+    let change = null;
+    {
+      const ms = meals.filter(m => m.meal_items.length).map(m => ({ t: Date.parse(m.created_at), g: m.meal_items.reduce((s, i) => s + (Number(i.grams) || 0), 0) }));
+      if (ms.length >= 4) {
+        const t0 = Math.min(...ms.map(m => m.t)), t1 = Math.max(...ms.map(m => m.t));
+        const A = ms.filter(m => m.t < t0 + 7 * 864e5), B = ms.filter(m => m.t > t1 - 7 * 864e5), avg = a => a.reduce((s, m) => s + m.g, 0) / a.length;
+        if (t1 - t0 >= 14 * 864e5 && A.length && B.length) { const fw = avg(A), lw = avg(B); change = { first_week_avg_g: Math.round(fw), last_week_avg_g: Math.round(lw), change_pct: fw ? Math.round((lw - fw) / fw * 100) : null, days: Math.round((t1 - t0) / 864e5) } }
+      }
+    }
+    // «رحلة أكلكم»: Sankey صغير من تحليل الأكل إلى التخزين إلى المصير (بالكيلو)
+    const sA = {}, sB = {};
+    for (const m of meals) for (const i of m.meal_items) {
+      const g = Number(i.grams) || 0, st = i.storage === 'fridge' ? 'ثلاجة' : i.storage === 'freezer' ? 'فريزر' : 'بدون تخزين', ou = { eaten: 'أُكل', half: 'أُكل نصه', donated: 'تبرعنا به', thrown: 'انرمى', expired: 'انتهت مدته' }[i.outcome] || 'مفتوح';
+      sA[st] = (sA[st] || 0) + g; const k = st + '>' + ou; sB[k] = (sB[k] || 0) + g;
+    }
+    const sankey = { links: [...Object.entries(sA).map(([k, v]) => ({ source: 'محلَّل', target: k, value: Math.round(v / 10) / 100 })), ...Object.entries(sB).map(([k, v]) => { const [s, t] = k.split('>'); return { source: s, target: t, value: Math.round(v / 10) / 100 } })].filter(l => l.value > 0) };
+
     // شارات الإنجاز من البيانات
     const firstTs = meals.length ? Math.min(...meals.map(m => Date.parse(m.created_at))) : null;
     const thrownRecent = meals.some(m => (m.status === 'thrown' || m.meal_items.some(i => i.outcome === 'thrown')) && now - Date.parse(m.closed_at || m.created_at) < 7 * 864e5);
@@ -116,7 +135,7 @@ module.exports = async (req, res) => {
       family: { city: fam.city, household_size: fam.household_size, cook_language: fam.cook_language, is_demo: !!fam.is_demo },
       stats, carbon_kg: r1(stats.kg_saved * 2.5),
       saved_ratio: stats.kg_leftovers_total > 0 ? Math.min(1, stats.kg_saved / stats.kg_leftovers_total) : 0,
-      daily, meals: recent, fridge, expired_stats, safety_rules: fsafe.RULES.map(r => ({ id: r.id, text: r.text, sources: r.src.map(s => ({ name: fsafe.SOURCES[s].name, url: fsafe.SOURCES[s].url, conservative: !fsafe.SOURCES[s].url })) })), top_items, maqdar, city_compare, badges,
+      daily, calendar: cal, change, sankey, meals: recent, fridge, expired_stats, safety_rules: fsafe.RULES.map(r => ({ id: r.id, text: r.text, sources: r.src.map(s => ({ name: fsafe.SOURCES[s].name, url: fsafe.SOURCES[s].url, conservative: !fsafe.SOURCES[s].url })) })), top_items, maqdar, city_compare, badges,
       donations: donsR || [], gatherings: gathR || [], generated_at: new Date(now).toISOString(),
     });
   } catch (e) {

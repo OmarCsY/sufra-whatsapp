@@ -10,11 +10,11 @@
 <link rel="icon" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--wine:#6E1E2B;--wine-d:#521620;--sand:#FBF6EE;--card:#fff;--gold:#B8892E;--ink:#2B2B2B;--mut:#7B6F66;--line:#EADFD0;--sandd:#D9C08A;--warn:#A3243B;--warnbg:#F8E6E8;--tint:#F4EAEA}
+:root{--olive:#6B7F3A;--olive2:#A3B070;--wine:#6E1E2B;--wine-d:#521620;--sand:#FBF6EE;--card:#fff;--gold:#B8892E;--ink:#2B2B2B;--mut:#7B6F66;--line:#EADFD0;--sandd:#D9C08A;--warn:#A3243B;--warnbg:#F8E6E8;--tint:#F4EAEA}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--sand);color:var(--ink);font-family:Tajawal,"Segoe UI","Noto Sans Arabic",Tahoma,sans-serif;-webkit-font-smoothing:antialiased}
+html,body{margin:0;background:var(--sand);color:var(--ink);font-family:"IBM Plex Sans Arabic","Segoe UI","Noto Sans Arabic",Tahoma,sans-serif;-webkit-font-smoothing:antialiased}
 body{min-height:100vh}
 .wrap{max-width:460px;margin:0 auto;padding:0 16px calc(96px + env(safe-area-inset-bottom))}
 header{padding:calc(18px + env(safe-area-inset-top)) 0 12px;display:flex;align-items:center;gap:12px}
@@ -121,6 +121,11 @@ header .s{font-size:14px;color:var(--mut);margin-top:2px}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;border-radius:12px;padding:10px 16px;font-size:14px;z-index:9;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%;text-align:center}#toast.on{opacity:1}
 .noanim .card{animation:none}
 @media (prefers-reduced-motion:reduce){.card{animation:none}.bar .tr i{transition:none}}
+i[data-lucide],svg.lucide{width:1.15em;height:1.15em;vertical-align:-.2em;stroke-width:2}
+.ec{width:100%;direction:ltr}
+.chg{display:flex;align-items:center;gap:14px}.chg .ec{flex:1;height:170px}.chg p{margin:0;flex:1;font-size:14px;line-height:1.8}.chg p b{color:var(--wine)}
+.chg .pc{font-size:34px;font-weight:700;color:var(--olive);direction:ltr;line-height:1.1}
+.card h2 svg.lucide{color:var(--wine)}
 </style>
 </head>
 <body>
@@ -132,6 +137,8 @@ header .s{font-size:14px;color:var(--mut);margin-top:2px}
   <div id="main"><div class="sk"></div><div class="sk" style="height:110px"></div><div class="sk" style="height:180px"></div></div>
 </div>
 <div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <a class="back" href="/">💬 ارجع للبوت</a>
 <script>
 const $ = s => document.querySelector(s);
@@ -186,7 +193,7 @@ function bars(daily) {
   let s = `<svg viewBox="0 0 ${W} ${H}" id="bars" role="img" aria-label="رسم أعمدة آخر 30 يوم"><line x1="4" y1="${base}" x2="${W - 4}" y2="${base}" stroke="#EADFD0"/>`;
   daily.forEach((d, i) => {
     const x = 4 + i * gw, hl = d.grams_left / max * (base - top), hs = Math.min(d.grams_saved, d.grams_left) / max * (base - top);
-    s += `<rect x="${(x + gw * .08).toFixed(1)}" y="${(base - hl).toFixed(1)}" width="${(gw * .38).toFixed(1)}" height="${hl.toFixed(1)}" rx="1.5" fill="#D9C08A"/><rect x="${(x + gw * .54).toFixed(1)}" y="${(base - hs).toFixed(1)}" width="${(gw * .38).toFixed(1)}" height="${hs.toFixed(1)}" rx="1.5" fill="#6E1E2B"/>`;
+    s += `<rect x="${(x + gw * .08).toFixed(1)}" y="${(base - hl).toFixed(1)}" width="${(gw * .38).toFixed(1)}" height="${hl.toFixed(1)}" rx="1.5" fill="#D9C08A"/><rect x="${(x + gw * .54).toFixed(1)}" y="${(base - hs).toFixed(1)}" width="${(gw * .38).toFixed(1)}" height="${hs.toFixed(1)}" rx="1.5" fill="#6B7F3A"/>`;
   });
   [0, 14, 29].forEach(i => { const d = new Date(daily[i].day + 'T12:00:00'); s += `<text x="${(4 + i * gw + gw / 2).toFixed(1)}" y="${H - 5}" text-anchor="middle" font-size="10" fill="#7B6F66">${d.getDate()}/${d.getMonth() + 1}</text>` });
   return s + '</svg>';
@@ -204,60 +211,73 @@ function render(D) {
       <div class="row"><div class="box"><b id="cSar">0</b><span>ريال موفّرة</span></div><div class="box"><b id="cDon">0</b><span>كجم متبرع فيها</span></div><div class="box"><b id="cMeals">0</b><span>وجبة محللة</span></div></div>
       <div class="co2">🌍 تقريبًا ${f1(D.carbon_kg)} كجم كربون تجنبتوه (تقديري)</div></div>`;
     const pct = Math.round(D.saved_ratio * 100);
-    h += `<div class="card"><h2>🔄 نسبة الإنقاذ</h2><div class="ringw">${ring(D.saved_ratio)}<p>أنقذتوا <b>${pct}%</b> من البواقي.<br>من <b>${f1(st.kg_leftovers_total)} كجم</b> بواقي، رجعتوا <b>${f1(st.kg_saved)} كجم</b> للاستفادة${st.kg_thrown ? `، ورُمي <b>${f1(st.kg_thrown)} كجم</b>` : ''}.</p></div></div>`;
-    h += `<div class="card"><h2>📈 آخر 30 يوم</h2><div class="chart"><div class="tip" id="tip"></div>${bars(D.daily)}</div><div class="legend"><span><i style="background:#D9C08A"></i>بواقي</span><span><i style="background:#6E1E2B"></i>منقذ</span><span style="margin-inline-start:auto">المس العمود لتفاصيل اليوم</span></div></div>`;
+    h += `<div class="card"><h2><i data-lucide="gauge"></i>  نسبة الإنقاذ</h2><div class="ringw">${window.echarts ? '<div class="ec" id="gauge" style="width:132px;height:132px;flex-shrink:0"></div>' : ring(D.saved_ratio)}<p>أنقذتوا <b>${pct}%</b> من البواقي.<br>من <b>${f1(st.kg_leftovers_total)} كجم</b> بواقي، رجعتوا <b>${f1(st.kg_saved)} كجم</b> للاستفادة${st.kg_thrown ? `، ورُمي <b>${f1(st.kg_thrown)} كجم</b>` : ''}.</p></div></div>`;
+    h += `<div class="card"><h2><i data-lucide="trending-up"></i>  آخر 30 يوم</h2><div class="chart"><div class="tip" id="tip"></div>${bars(D.daily)}</div><div class="legend"><span><i style="background:#D9C08A"></i>بواقي</span><span><i style="background:#6B7F3A"></i>منقذ</span><span style="margin-inline-start:auto">المس العمود لتفاصيل اليوم</span></div></div>`;
+  }
+  if (st.meals_analyzed && window.echarts) {
+    h += `<div class="card"><h2><i data-lucide="calendar-days"></i> تقويم البواقي <small>آخر 6 أسابيع</small></h2><div class="ec" id="calChart" style="height:230px"></div><div class="mini">كل مربع يوم: الأغمق = بواقي أكثر.</div></div>`;
+    const ch = D.change;
+    h += `<div class="card"><h2><i data-lucide="sprout"></i> تغيّركم</h2>` + (ch && ch.change_pct != null
+      ? `<div class="chg"><div class="ec" id="chgChart"></div><p><span class="pc">${Math.abs(ch.change_pct)}%</span><br>${ch.change_pct <= 0 ? 'انخفض' : 'ارتفع'} متوسط بواقي وجبتكم بين <b>أول أسبوع</b> (${Math.round(ch.first_week_avg_g)} جم) و<b>آخر أسبوع</b> (${Math.round(ch.last_week_avg_g)} جم).</p></div>`
+      : `<div class="mini">نحتاج أسبوعين من استخدامكم (14 يوم فأكثر) عشان نقارن أول أسبوع بآخر أسبوع.</div>`) + `</div>`;
   }
   // الثلاجة: بطاقات تفاعلية (تحدّث القاعدة عبر /api/track بالرمز، وتتحدث الأرقام فورًا)
-  h += `<div class="card"><h2>🧊 في ثلاجتكم الحين</h2>` + (D.fridge.length ? `<div id="fridge">${D.fridge.map(fridgeCard).join('')}</div>` : `<div class="mini">ما فيه أكل محفوظ حاليًا. لما تقولون للبوت «دخل الثلاجة» أو «حطيت كيلو رز بالثلاجة» يظهر هنا مع عدّاد الصلاحية.</div>`) + `</div>`;
+  h += `<div class="card"><h2><i data-lucide="snowflake"></i> في  ثلاجتكم الحين</h2>` + (D.fridge.length ? `<div id="fridge">${D.fridge.map(fridgeCard).join('')}</div>` : `<div class="mini">ما فيه أكل محفوظ حاليًا. لما تقولون للبوت «دخل الثلاجة» أو «حطيت كيلو رز بالثلاجة» يظهر هنا مع عدّاد الصلاحية.</div>`) + `</div>`;
   // مقدار
   const lang = f.cook_language || 'عربي', tpl = COOK[lang] || COOK['English'];
   if (D.maqdar) {
     const c = D.maqdar.cups, msg = tpl(lang === 'عربي' ? cupsAr(c).replace(/^كوب$/, '1 كوب') : f1(c));
-    h += `<div class="card"><h2>🍚 مقدار <small>توصية من وجباتكم</small></h2><div class="rec">الرز يزيد عندكم تقريبًا <b>${cupsAr(c)}</b> في كل وجبة (متوسط ${D.maqdar.meals} وجبات حللناها).<br>التوصية: قلّلوا كمية الرز <b>${cupsAr(c)}</b>.</div><div class="btns"><button class="btn" id="copyCook">📋 انسخ رسالة الطباخ</button></div><div class="mini" id="cookPrev" style="margin-top:8px">${esc(msg)}</div></div>`;
+    h += `<div class="card"><h2><i data-lucide="wheat"></i>  مقدار <small>توصية من وجباتكم</small></h2><div class="rec">الرز يزيد عندكم تقريبًا <b>${cupsAr(c)}</b> في كل وجبة (متوسط ${D.maqdar.meals} وجبات حللناها).<br>التوصية: قلّلوا كمية الرز <b>${cupsAr(c)}</b>.</div><div class="btns"><button class="btn" id="copyCook">📋 انسخ رسالة الطباخ</button></div><div class="mini" id="cookPrev" style="margin-top:8px">${esc(msg)}</div></div>`;
     window.__cook = msg;
   } else if (D.top_items.length) {
-    h += `<div class="card"><h2>🍚 مقدار</h2><div class="rec">للحين ما فيه زيادة رز تستاهل التعديل. أكثر صنف يزيد عندكم: <b>${esc(D.top_items[0].name)}</b>، جرّبوا تنقصون كميته شوي.</div></div>`;
+    h += `<div class="card"><h2><i data-lucide="wheat"></i>  مقدار</h2><div class="rec">للحين ما فيه زيادة رز تستاهل التعديل. أكثر صنف يزيد عندكم: <b>${esc(D.top_items[0].name)}</b>، جرّبوا تنقصون كميته شوي.</div></div>`;
   }
   if (D.top_items.length) {
     const mx = D.top_items[0].grams || 1;
-    h += `<div class="card"><h2>📊 أكثر الأصناف اللي تزيد</h2>` + D.top_items.map(t => `<div class="bar"><div class="h"><b>${esc(t.name)}</b><span>${grams(t.grams)}</span></div><div class="tr"><i data-w="${Math.round(t.grams / mx * 100)}"></i></div></div>`).join('') + `</div>`;
+    h += `<div class="card"><h2><i data-lucide="bar-chart-3"></i>  أكثر الأصناف اللي تزيد</h2>` + D.top_items.map(t => `<div class="bar"><div class="h"><b>${esc(t.name)}</b><span>${grams(t.grams)}</span></div><div class="tr"><i data-w="${Math.round(t.grams / mx * 100)}"></i></div></div>`).join('') + `</div>`;
   }
   // انتهى قبل ما ينأكل (هذا الشهر)
   const ES = D.expired_stats || { count: 0 };
-  h += `<div class="card"><h2>⌛ انتهى قبل ما ينأكل <small>هذا الشهر</small></h2>` + (ES.count
+  h += `<div class="card"><h2><i data-lucide="hourglass"></i>  انتهى قبل ما ينأكل <small>هذا الشهر</small></h2>` + (ES.count
     ? `<div class="kpis"><div><b>${ES.count}</b><span>صنف انتهى</span></div><div><b>${grams(ES.grams)}</b><span>الوزن</span></div></div><div class="rec">أكثر صنف ينتهي عندكم: <b>${esc(ES.top.name)}</b> (${ES.top.count} ${ES.top.count === 1 ? 'مرة' : 'مرات'}).<br>${esc(ES.advice.text)}<div class="rs" style="margin-top:6px">المصدر: ${srcLink(ES.advice.source_name, ES.advice.source_url)}</div></div>`
     : `<div class="mini">ما انتهى عندكم أي أكل هذا الشهر 👏 كمّلوا على كذا.</div>`) + `</div>`;
   // السجل: المس الوجبة لتشوف خطها الزمني
-  if (D.meals.length) h += `<div class="card"><h2>🧾 آخر الوجبات <small>المس الوجبة للتفاصيل</small></h2><div class="list">` + D.meals.map(m => { const last = m.timeline[m.timeline.length - 1], o = (END.includes(last.step) ? [TLI[last.step][0], TLI[last.step][1]] : OUT[m.status] || OUT.analyzed), nm = m.dish_name || m.items.map(i => i.name).join(' و') || 'وجبة'; return `<div class="mw"><div class="it mrow"><span class="ic">${o[0]}</span><div class="n"><b>${esc(nm)}</b><span>${dayLabel(m.created_at)} · ${o[1]}</span></div><div class="r">${grams(m.total_grams || 0)}</div><span class="chev">▼</span></div><div class="tl" hidden>${timeline(m)}</div></div>` }).join('') + `</div></div>`;
+  if (D.meals.length) h += `<div class="card"><h2><i data-lucide="receipt"></i>  آخر الوجبات <small>المس الوجبة للتفاصيل</small></h2><div class="list">` + D.meals.map(m => { const last = m.timeline[m.timeline.length - 1], o = (END.includes(last.step) ? [TLI[last.step][0], TLI[last.step][1]] : OUT[m.status] || OUT.analyzed), nm = m.dish_name || m.items.map(i => i.name).join(' و') || 'وجبة'; return `<div class="mw"><div class="it mrow"><span class="ic">${o[0]}</span><div class="n"><b>${esc(nm)}</b><span>${dayLabel(m.created_at)} · ${o[1]}</span></div><div class="r">${grams(m.total_grams || 0)}</div><span class="chev">▼</span></div><div class="tl" hidden>${timeline(m)}</div></div>` }).join('') + `</div></div>`;
+  // رحلة أكلكم (Sankey صغير)
+  if (st.meals_analyzed && window.echarts && D.sankey && D.sankey.links.length) h += `<div class="card"><h2><i data-lucide="git-branch"></i> رحلة أكلكم</h2><div class="ec" id="sankeyChart" style="height:250px"></div><div class="mini">من التحليل إلى التخزين إلى المصير (بالكيلو).</div></div>`;
   // التبرعات والعزائم
   const DS = { agreed: 'تم الاتفاق', contacted: 'تم التواصل', no_answer: 'ما ردوا' };
   if (D.donations.length || D.gatherings.length) {
-    h += `<div class="card"><h2>🤝 التبرعات والعزائم</h2><div class="list">` +
+    h += `<div class="card"><h2><i data-lucide="hand-heart"></i> التبرعات  والعزائم</h2><div class="list">` +
       D.donations.map(d => `<div class="it"><span class="ic">🤝</span><div class="n"><b>${esc(d.charity_name)}</b><span>${esc(d.charity_city || '')}${d.distance_km ? ' · ' + Math.round(d.distance_km) + ' كم' : ''} · ${DS[d.status] || ''} · ${dayLabel(d.created_at).split(' · ')[0]}</span></div><div class="r">${d.grams ? grams(d.grams) : ''}</div></div>`).join('') +
       D.gatherings.map(g => `<div class="it"><span class="ic">🎉</span><div class="n"><b>عزيمة ${g.guests_min === g.guests_max ? g.guests_min : g.guests_min + ' - ' + g.guests_max} ضيف</b><span>رز ${f1(g.rice_kg || 0)} كجم · لحم ${f1(g.meat_kg || 0)} كجم · ${dayLabel(g.created_at).split(' · ')[0]}</span></div></div>`).join('') + `</div></div>`;
   }
   // الشارات
-  h += `<div class="card"><h2>🏅 إنجازاتكم</h2><div class="badges">` + D.badges.map(b => `<div class="bd${b.earned ? ' on' : ''}"><div class="e">${{ first_donation: '🤝', no_waste_7: '🌿', meals_10: '📷', saved_5kg: '🏆' }[b.id] || '⭐'}</div><b>${esc(b.title)}</b><span>${b.earned ? 'تم ✓' : esc(b.desc)}</span>${b.earned ? '' : `<div class="p"><i style="width:${Math.round(b.progress * 100)}%"></i></div>`}</div>`).join('') + `</div></div>`;
+  h += `<div class="card"><h2><i data-lucide="award"></i>  إنجازاتكم</h2><div class="badges">` + D.badges.map(b => `<div class="bd${b.earned ? ' on' : ''}"><div class="e">${{ first_donation: '🤝', no_waste_7: '🌿', meals_10: '📷', saved_5kg: '🏆' }[b.id] || '⭐'}</div><b>${esc(b.title)}</b><span>${b.earned ? 'تم ✓' : esc(b.desc)}</span>${b.earned ? '' : `<div class="p"><i style="width:${Math.round(b.progress * 100)}%"></i></div>`}</div>`).join('') + `</div></div>`;
   // مقارنة المدينة
   if (D.city_compare) {
     const c = D.city_compare, mx = Math.max(c.you_leftover_kg, c.avg_leftover_kg, .1), diff = c.avg_leftover_kg ? Math.round((1 - c.you_leftover_kg / c.avg_leftover_kg) * 100) : 0;
-    h += `<div class="card cmp"><h2>🏙️ مقارنة مع ${esc(c.city)}</h2><p class="v">${diff > 0 ? `بواقيكم <b style="color:var(--wine)">أقل ${diff}%</b> من متوسط أسر ${esc(c.city)} 👏` : diff < 0 ? `بواقيكم أعلى ${Math.abs(diff)}% من متوسط أسر ${esc(c.city)}، وفيه مجال نحسّنه معًا 🌱` : `بواقيكم مثل متوسط أسر ${esc(c.city)}`}</p>
+    h += `<div class="card cmp"><h2><i data-lucide="building-2"></i>  مقارنة مع ${esc(c.city)}</h2><p class="v">${diff > 0 ? `بواقيكم <b style="color:var(--wine)">أقل ${diff}%</b> من متوسط أسر ${esc(c.city)} 👏` : diff < 0 ? `بواقيكم أعلى ${Math.abs(diff)}% من متوسط أسر ${esc(c.city)}، وفيه مجال نحسّنه معًا 🌱` : `بواقيكم مثل متوسط أسر ${esc(c.city)}`}</p>
       <div class="bar"><div class="h"><b>أسرتكم</b><span>${f1(c.you_leftover_kg)} كجم</span></div><div class="tr"><i data-w="${Math.round(c.you_leftover_kg / mx * 100)}"></i></div></div>
       <div class="bar gold"><div class="h"><b>متوسط الأسرة في ${esc(c.city)}</b><span>${f1(c.avg_leftover_kg)} كجم</span></div><div class="tr"><i data-w="${Math.round(c.avg_leftover_kg / mx * 100)}"></i></div></div><div class="mini">من ${c.families} أسر في المدينة (أرقام مجمعة).</div></div>`;
   }
   // سلامة أكلكم: القواعد العامة من قاعدة المعرفة، وكل قاعدة برابط مصدرها (والمتحفظة مكتوب عليها «تقدير متحفظ»)
-  if (D.safety_rules && D.safety_rules.length) h += `<div class="card"><h2>🛡️ سلامة أكلكم</h2>${D.safety_rules.map(r => `<div class="rl"><span class="ri">${RI[r.id] || '✔️'}</span><div><p>${esc(r.text)}</p><div class="rs">المصدر: ${r.sources.map(x => srcLink(x.name, x.url)).join(' · ')}</div></div></div>`).join('')}</div>`;
+  if (D.safety_rules && D.safety_rules.length) h += `<div class="card"><h2><i data-lucide="shield-check"></i>  سلامة أكلكم</h2>${D.safety_rules.map(r => `<div class="rl"><span class="ri">${RI[r.id] || '✔️'}</span><div><p>${esc(r.text)}</p><div class="rs">المصدر: ${r.sources.map(x => srcLink(x.name, x.url)).join(' · ')}</div></div></div>`).join('')}</div>`;
   // لتدوم
   const pf = platform(), L = pf === 'desktop' ? [['🍎 App Store', LTD.ios], ['🤖 Google Play', LTD.android], ['📱 AppGallery', LTD.huawei]] : [[pf === 'ios' ? '⬇️ حمّل من App Store' : pf === 'android' ? '⬇️ حمّل من Google Play' : '⬇️ حمّل من AppGallery', LTD[pf]]];
-  h += `<div class="card"><h2>📲 تطبيق لتدوم</h2><div class="mini" style="margin-bottom:2px">البرنامج الوطني للحد من الفقد والهدر في الغذاء، يرفع الوعي وسُفرة تحوّله لسلوك يومي في بيتكم.</div><div class="btns">${L.map(([t, u]) => `<a class="btn" href="${u}" target="_blank" rel="noopener">${t}</a>`).join('')}<a class="btn o" href="${LTD.site}" target="_blank" rel="noopener">🌐 موقع لتدوم</a></div></div>`;
+  h += `<div class="card"><h2><i data-lucide="smartphone"></i>  تطبيق لتدوم</h2><div class="mini" style="margin-bottom:2px">البرنامج الوطني للحد من الفقد والهدر في الغذاء، يرفع الوعي وسُفرة تحوّله لسلوك يومي في بيتكم.</div><div class="btns">${L.map(([t, u]) => `<a class="btn" href="${u}" target="_blank" rel="noopener">${t}</a>`).join('')}<a class="btn o" href="${LTD.site}" target="_blank" rel="noopener">🌐 موقع لتدوم</a></div></div>`;
+  h += `<div class="card" style="text-align:center"><h2 style="justify-content:center"><i data-lucide="map"></i> مرصد سُفرة</h2><div class="mini" style="margin-bottom:10px">شوفوا أرقام البيوت في المملكة مجمّعة بدون أسماء.</div><a class="btn o" href="/observatory">🗺️ افتح مرصد سُفرة</a></div>`;
   h += `<div class="note">🔒 بياناتكم خاصة بأسرتكم، والمرصد يشوف أرقام مجمعة بدون أسماء.</div>`;
   $('#main').innerHTML = h;
+  ECH.forEach(c => c.dispose()); ECH.length = 0;
+  try { lucide.createIcons() } catch (e) {}
   $('#main').classList.toggle('noanim', QUIET);
   clearInterval(tickT);
 
   if (st.meals_analyzed) {
     countUp($('#cSaved'), st.kg_saved, 1); countUp($('#cSar'), st.sar_saved); countUp($('#cDon'), st.kg_donated, 1); countUp($('#cMeals'), st.meals_analyzed);
-    const rc = $('#ringc'), rt = $('#ringt'); if (QUIET) rc.style.strokeDashoffset = rc.dataset.to; else requestAnimationFrame(() => { rc.style.strokeDashoffset = rc.dataset.to }); countUp({ set textContent(v) { rt.textContent = v + '%' } }, Math.round(D.saved_ratio * 100));
+    const rc = $('#ringc'), rt = $('#ringt'); if (rc) if (QUIET) rc.style.strokeDashoffset = rc.dataset.to; else requestAnimationFrame(() => { rc.style.strokeDashoffset = rc.dataset.to }); if (rt) countUp({ set textContent(v) { rt.textContent = v + '%' } }, Math.round(D.saved_ratio * 100));
+    drawEcharts(D);
     const bsvg = $('#bars'), tip = $('#tip'), n = D.daily.length;
     const show = e => { const r = bsvg.getBoundingClientRect(), k = Math.max(0, Math.min(n - 1, Math.floor((e.clientX - r.left) / r.width * n))), d = D.daily[k], dt = new Date(d.day + 'T12:00:00'); tip.innerHTML = `${dt.getDate()}/${dt.getMonth() + 1}<br>بواقي ${grams(d.grams_left)} · منقذ ${grams(d.grams_saved)}`; tip.style.left = Math.max(70, Math.min(r.width - 70, (k + .5) / n * r.width)) + 'px'; tip.classList.add('on') };
     bsvg.addEventListener('pointerdown', show); bsvg.addEventListener('pointermove', show); bsvg.addEventListener('pointerleave', () => tip.classList.remove('on')); bsvg.addEventListener('pointerup', () => setTimeout(() => tip.classList.remove('on'), 1800));
@@ -289,6 +309,37 @@ function render(D) {
   });
   const cb = $('#copyCook'); if (cb) cb.onclick = async () => { const t = window.__cook; try { await navigator.clipboard.writeText(t) } catch (e) { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy') } catch (e2) {} a.remove() } cb.textContent = '✓ تم النسخ'; setTimeout(() => { cb.textContent = '📋 انسخ رسالة الطباخ' }, 2000) };
 }
+
+/* ---------- رسوم ECharts: gauge، تقويم حراري، تغيّركم، Sankey ---------- */
+const ECH = [];
+const FONT = '"IBM Plex Sans Arabic", Tahoma, sans-serif';
+function ec(id, opt) { const el = document.getElementById(id); if (!el || !window.echarts) return null; const c = echarts.init(el, null, { renderer: 'svg' }); c.setOption({ textStyle: { fontFamily: FONT }, animation: !(reduce || QUIET), animationDuration: 1200, ...opt }); ECH.push(c); return c }
+const TIP = { backgroundColor: '#fff', borderColor: '#EADFD0', textStyle: { color: '#2B2B2B', fontFamily: FONT, fontSize: 13 }, extraCssText: 'direction:rtl;text-align:right;border-radius:10px;box-shadow:0 4px 16px rgba(110,30,43,.15)' };
+function drawEcharts(D) {
+  const pct = Math.round(D.saved_ratio * 100);
+  ec('gauge', { series: [{ type: 'gauge', startAngle: 90, endAngle: -270, radius: '96%', pointer: { show: false }, progress: { show: true, width: 14, roundCap: true, itemStyle: { color: '#6B7F3A' } }, axisLine: { lineStyle: { width: 14, color: [[1, '#EADFD0']] } }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, detail: { valueAnimation: true, formatter: '{value}%', fontSize: 26, fontWeight: 700, color: '#6E1E2B', fontFamily: FONT, offsetCenter: [0, 0] }, data: [{ value: pct }] }] });
+  // التقويم الحراري: آخر 6 أسابيع (الأسبوع يبدأ السبت)
+  const cal = D.calendar || [], pad = n => String(n).padStart(2, '0');
+  if (cal.length) {
+    const vals = cal.map(c => c.grams_left), mx = Math.max(1, ...vals);
+    ec('calChart', { tooltip: { ...TIP, formatter: p => { const c = cal.find(x => x.day === p.value[0]); return `<b>${p.value[0].slice(5).replace('-', '/')}</b><br>بواقي: ${grams(c.grams_left)}<br>منقذ: ${grams(c.grams_saved)}` } },
+      visualMap: { min: 0, max: mx, orient: 'horizontal', left: 'center', bottom: 0, itemWidth: 12, itemHeight: 100, text: ['أكثر', 'أقل'], calculable: false, textStyle: { color: '#7B6F66', fontFamily: FONT }, inRange: { color: ['#F4EEE2', '#D9C08A', '#B8892E', '#A9606B', '#6E1E2B'] } },
+      calendar: { top: 26, left: 24, right: 8, bottom: 44, range: [cal[0].day, cal[cal.length - 1].day], cellSize: ['auto', 'auto'], orient: 'horizontal', firstDay: 6, splitLine: { show: false }, itemStyle: { borderWidth: 3, borderColor: '#fff', color: '#F4EEE2' }, yearLabel: { show: false },
+        dayLabel: { firstDay: 6, nameMap: ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'], color: '#7B6F66', fontSize: 9, fontFamily: FONT, margin: 6 }, monthLabel: { nameMap: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'], color: '#7B6F66', fontSize: 11, fontFamily: FONT } },
+      series: [{ type: 'heatmap', coordinateSystem: 'calendar', data: cal.map(c => [c.day, c.grams_left]), itemStyle: { borderRadius: 5 } }] });
+  }
+  const ch = D.change;
+  if (ch && ch.change_pct != null) ec('chgChart', { grid: { left: 4, right: 4, top: 26, bottom: 4, containLabel: true }, xAxis: { type: 'category', data: ['أول أسبوع', 'آخر أسبوع'], axisTick: { show: false }, axisLabel: { fontFamily: FONT, color: '#2B2B2B' } }, yAxis: { type: 'value', show: false, max: v => v.max * 1.25 },
+    series: [{ type: 'bar', barWidth: '48%', data: [{ value: ch.first_week_avg_g, itemStyle: { color: '#D9C08A', borderRadius: [8, 8, 0, 0] } }, { value: ch.last_week_avg_g, itemStyle: { color: '#6B7F3A', borderRadius: [8, 8, 0, 0] } }], label: { show: true, position: 'top', formatter: p => Math.round(p.value) + ' جم', fontFamily: FONT, fontWeight: 700, color: '#B8892E', fontSize: 12 }, animationDelay: i => i * 300 }] });
+  const L = (D.sankey && D.sankey.links) || [];
+  if (L.length) {
+    const col = { 'محلَّل': '#6E1E2B', 'ثلاجة': '#B8892E', 'فريزر': '#C9A24F', 'بدون تخزين': '#B9A98F', 'أُكل': '#6B7F3A', 'أُكل نصه': '#A3B070', 'تبرعنا به': '#B8892E', 'انرمى': '#A9606B', 'انتهت مدته': '#8B8077', 'مفتوح': '#CDBFA9' };
+    const dp = n => n === 'محلَّل' ? 0 : ['ثلاجة', 'فريزر', 'بدون تخزين'].includes(n) ? 1 : 2, used = new Set(); L.forEach(l => { used.add(l.source); used.add(l.target) });
+    ec('sankeyChart', { tooltip: { ...TIP, formatter: p => p.dataType === 'edge' ? `${p.data.source} ← ${p.data.target}<br><b>${p.data.value} كجم</b>` : `<b>${p.name}</b><br>${p.value} كجم` },
+      series: [{ type: 'sankey', left: 4, right: 56, top: 6, bottom: 6, nodeWidth: 12, nodeGap: 8, layoutIterations: 0, draggable: false, label: { fontFamily: FONT, fontSize: 11, color: '#2B2B2B' }, lineStyle: { color: 'gradient', curveness: .5, opacity: .35 }, data: [...used].map(n => ({ name: n, depth: dp(n), itemStyle: { color: col[n] || '#7B6F66' } })), links: L }] });
+  }
+}
+addEventListener('resize', () => ECH.forEach(c => c.resize()));
 
 function fail(code) {
   $('#sub').innerHTML = '&nbsp;';

@@ -110,7 +110,7 @@ const img = f => readFileSync(join(ROOT, f)).toString('base64');
 {
   // مدة الحفظ من قاعدة سلامة الغذاء: الرز 24 ساعة، الدجاج 3 أيام
   const r = await post('/api/analyze', { image: img('s-kabsa.jpg'), mime: 'image/jpeg' }); await sleep(GAP);
-  const j = r.json || {}, hl = n => { const i = (j.items || []).find(x => x.name === n); return i ? (Date.parse(i.safe_until) - Date.now()) / 36e5 : null };
+  const j = r.json || {}, hl = n => { const i = (j.items || []).find(x => x.name.includes(n)); return i ? (Date.parse(i.safe_until) - Date.now()) / 36e5 : null };
   const rice = hl('رز'), chk = hl('دجاج');
   rows.push([++n, 'analyze: safe_until رز = 24 ساعة، دجاج = 3 أيام', rice != null && chk != null && Math.abs(rice - 24) < 0.5 && Math.abs(chk - 72) < 0.5 ? 'PASS' : 'FAIL', `via=${j.via} رز=${rice && rice.toFixed(1)}h دجاج=${chk && chk.toFixed(1)}h`]);
 }

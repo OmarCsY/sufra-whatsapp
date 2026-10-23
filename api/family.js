@@ -1,6 +1,7 @@
 // إنشاء أسرة جديدة أو تحديث أسرة موجودة (family_id + dash_token معًا)
 const { limited } = require('./_util');
 const { db, ready, family, newToken, str, num, int } = require('./_db');
+const { regionOf } = require('./_regions');
 
 module.exports = async (req, res) => {
   res.setHeader('cache-control', 'no-store');
@@ -12,7 +13,7 @@ module.exports = async (req, res) => {
   const patch = {};
   const hs = int(b.household_size, 1, 60); if (hs != null) patch.household_size = hs;
   const cl = str(b.cook_language, 20); if (cl) patch.cook_language = cl;
-  const city = str(b.city, 40); if (city) patch.city = city;
+  const city = str(b.city, 40); if (city) { patch.city = city; const rg = regionOf(city); if (rg) patch.region = rg }   // المنطقة من المدينة بجدول ثابت للمناطق الـ13
   const lat = num(b.lat, -90, 90), lng = num(b.lng, -180, 180);
   if (lat != null && lng != null) { patch.lat = lat; patch.lng = lng }
   const now = new Date().toISOString();

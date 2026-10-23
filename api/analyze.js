@@ -75,6 +75,7 @@ async function store(b, out) {
     family_id: fam.id, dish_name: out.dish_name ? String(out.dish_name).slice(0, 80) : null, source: 'whatsapp',
     analyzed_via: String(out.via || '').slice(0, 40) || null, engine_meal_id: out.meal_id ? String(out.meal_id).slice(0, 80) : null,
     total_grams: Math.round(items.reduce((s, i) => s + Number(i.grams), 0)), total_value_sar: Number(out.total_value_sar) || 0,
+    occasion: ['daily', 'gathering', 'ramadan', 'eid', 'other'].includes(b.occasion) ? b.occasion : 'daily', guests: b.occasion === 'gathering' && Number(b.guests) >= 1 && Number(b.guests) <= 5000 ? Math.round(Number(b.guests)) : null,
     servings_left: Math.round(Number(out.servings_left) || 0), next_day_suggestion: out.next_day_suggestion ? String(out.next_day_suggestion).slice(0, 200) : null, status: 'analyzed',
   });
   const mealId = meals[0].id;

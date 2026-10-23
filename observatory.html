@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>مرصد سُفرة · لوحة بيانات مقترحة</title>
+<meta name="description" content="مرصد سُفرة: لوحة بيانات مقترحة لبرنامج لتدوم والجمعيات، أرقام مجمعة بدون هوية عن بواقي الأكل في البيوت">
+<meta name="theme-color" content="#6E1E2B">
+<link rel="icon" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--wine:#6E1E2B;--wine2:#8B3A47;--wine3:#A9606B;--wine4:#C58C94;--wine5:#E2BDC2;--tint:#F4EAEA;--sand:#FBF6EE;--card:#fff;--gold:#B8892E;--olive:#6B7F3A;--olive2:#A3B070;--ink:#2B2B2B;--mut:#7B6F66;--line:#EADFD0;--sandd:#D9C08A;--warn:#A3243B}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--sand);color:var(--ink);font-family:"IBM Plex Sans Arabic","Segoe UI","Noto Sans Arabic",Tahoma,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px;margin:0 auto;padding:0 16px 48px}
+i[data-lucide],svg.lucide{width:1.15em;height:1.15em;vertical-align:-.2em;stroke-width:2}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:calc(16px + env(safe-area-inset-top)) 0 10px}
+.brand{display:flex;align-items:center;gap:12px;flex:1 1 320px;min-width:0}
+.brand img{width:58px;flex-shrink:0}
+.brand h1{margin:0;font-size:24px;font-weight:700;color:var(--wine);line-height:1.25}
+.brand p{margin:2px 0 0;font-size:13.5px;color:var(--mut);line-height:1.6}
+.chip{display:inline-flex;align-items:center;gap:5px;background:var(--tint);color:var(--wine);border:1px solid #E6CDD0;border-radius:999px;font-size:12px;font-weight:600;padding:3px 10px}
+.filters{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.seg{display:inline-flex;background:#fff;border:1.5px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--mut);padding:8px 14px;cursor:pointer}
+.seg button.on{background:var(--wine);color:#fff}
+select{font:inherit;font-size:14px;font-weight:500;color:var(--ink);background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;max-width:100%}
+.sw{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;cursor:pointer;user-select:none}
+.sw input{display:none}.sw i.t{width:40px;height:22px;border-radius:999px;background:#D7CCBD;position:relative;transition:.2s;display:inline-block;vertical-align:middle}
+.sw i.t::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s}
+.sw input:checked+i.t{background:var(--wine)}.sw input:checked+i.t::after{inset-inline-start:21px}
+.banner{display:flex;gap:10px;align-items:center;background:#FFF8E8;border:1px solid #EBD7A6;color:#7A5A12;border-radius:14px;padding:11px 14px;font-size:14px;line-height:1.6;margin:8px 0 14px}
+.crumb{display:inline-flex;align-items:center;gap:6px;margin-inline-start:6px}
+.crumb button{border:0;background:var(--wine);color:#fff;border-radius:999px;font:inherit;font-size:12.5px;padding:3px 10px;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.card{grid-column:span 12;background:var(--card);border-radius:18px;padding:18px;box-shadow:0 1px 2px rgba(110,30,43,.06),0 6px 20px rgba(110,30,43,.06);min-width:0;animation:up .5s ease both}
+@keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.card h2{margin:0 0 4px;font-size:17px;font-weight:700;color:var(--wine);display:flex;align-items:center;gap:8px}
+.card .sub{margin:0 0 12px;font-size:13px;color:var(--mut);line-height:1.7}
+@media(min-width:760px){.c6{grid-column:span 6}.c4{grid-column:span 6}.c8{grid-column:span 12}.c12{grid-column:span 12}}
+@media(min-width:1100px){.c4{grid-column:span 4}.c8{grid-column:span 8}.c6{grid-column:span 6}}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:760px){.kpis{grid-template-columns:repeat(4,1fr)}}
+.kpi{background:#fff;border-radius:18px;padding:14px 14px 10px;box-shadow:0 1px 2px rgba(110,30,43,.06),0 6px 20px rgba(110,30,43,.06);position:relative;overflow:hidden;animation:up .5s ease both}
+.kpi .l{font-size:13px;color:var(--mut);display:flex;align-items:center;gap:6px;font-weight:500}
+.kpi .v{font-size:30px;font-weight:700;color:var(--gold);line-height:1.2;margin:4px 0 2px;direction:ltr;text-align:right;white-space:nowrap}
+.kpi .v small{font-size:14px;color:var(--mut);font-weight:500;margin-inline-start:4px}
+.kpi.olive .v{color:var(--olive)}
+.kpi .n{font-size:11.5px;color:var(--mut)}
+.kpi svg.sp{display:block;width:100%;height:30px;margin-top:6px}
+.hero{background:linear-gradient(160deg,#6E1E2B 0%,#521620 100%);color:#fff}
+.hero h2{color:#fff}.hero .sub{color:#F0DDB0}
+.hero .row{display:grid;grid-template-columns:1fr;gap:16px;align-items:center}
+@media(min-width:760px){.hero .row{grid-template-columns:1fr 1fr}}
+.hero .big{font-size:64px;font-weight:700;color:#E9C777;line-height:1;direction:ltr;text-align:right}
+.hero .big small{font-size:20px;color:#fff;font-weight:600;margin-inline-start:8px}
+.hero p{margin:8px 0 0;font-size:14.5px;line-height:1.8;color:#fff}
+.hero .how{margin-top:12px;font-size:12.5px;line-height:1.8;color:#E7D5D8;background:rgba(255,255,255,.08);border-radius:12px;padding:10px 12px}
+.ch{width:100%;height:300px;direction:ltr}.ch.s{height:240px}.ch.m{height:360px}.ch.l{height:430px}
+.src{font-size:11.5px;color:var(--mut);line-height:1.8;margin-top:8px}.src a{color:var(--wine)}
+.list{display:flex;flex-direction:column;gap:10px}
+.bar .h{display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px}.bar .h span{color:var(--mut);font-size:13px}
+.bar .t{height:10px;background:var(--line);border-radius:6px;overflow:hidden}.bar .t i{display:block;height:100%;width:0;border-radius:6px;background:var(--wine);transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.bar.o .t i{background:var(--olive)}.bar.g .t i{background:var(--gold)}
+.stat{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}.stat div{flex:1;min-width:110px;background:var(--tint);border-radius:14px;padding:10px 12px}.stat b{display:block;font-size:22px;color:var(--wine);font-weight:700;direction:ltr;text-align:right}.stat span{font-size:12.5px;color:var(--mut)}
+.mult{background:var(--tint);border-radius:14px;padding:12px 14px;font-size:15px;line-height:1.7;margin-top:10px}.mult b{color:var(--wine);font-size:22px}
+.cups{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.cups svg{width:42px;height:48px}
+.ins{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:760px){.ins{grid-template-columns:repeat(3,1fr)}}
+.ib{border:1.5px solid var(--line);border-radius:16px;padding:14px;background:#fff}
+.ib .fg{display:inline-block;background:var(--wine);color:#fff;border-radius:999px;padding:2px 12px;font-size:13px;font-weight:700;margin-bottom:8px;direction:ltr}
+.ib h3{margin:0 0 6px;font-size:15px;color:var(--wine)}.ib p{margin:0;font-size:13.5px;line-height:1.8}
+.ib.c{background:var(--tint);border-color:#E6CDD0}
+.tt{font-size:13px;font-weight:700;color:var(--mut);margin:14px 0 8px}
+.btns{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:12px;background:var(--wine);color:#fff;font:inherit;font-weight:600;font-size:14.5px;padding:10px 16px;cursor:pointer;text-decoration:none}
+.btn.o{background:#fff;color:var(--wine);border:1.5px solid var(--wine)}
+details{border:1.5px solid var(--line);border-radius:14px;padding:4px 14px;margin:0 0 10px;background:#fff}
+summary{cursor:pointer;font-weight:600;padding:10px 0;color:var(--wine);list-style:none;display:flex;align-items:center;gap:8px}
+summary::-webkit-details-marker{display:none}
+details ul{margin:0 0 10px;padding-inline-start:20px;font-size:13.5px;line-height:1.9}
+.rl{font-size:13px;line-height:1.8;margin:0 0 8px}.rl a,details a{color:var(--wine)}
+.cons{background:#FFF8E8;border:1px solid #EBD7A6;color:#7A5A12;border-radius:999px;padding:1px 8px;font-size:11.5px}
+.empty{text-align:center;padding:34px 12px;color:var(--mut);line-height:1.8}.empty .e{font-size:42px}
+.sk{background:linear-gradient(90deg,#F1E8DA 25%,#F8F1E6 50%,#F1E8DA 75%);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:18px;min-height:130px}
+@keyframes sh{to{background-position:-200% 0}}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;border-radius:12px;padding:10px 16px;font-size:14px;z-index:9;opacity:0;pointer-events:none;transition:opacity .2s}#toast.on{opacity:1}
+footer{margin-top:22px;text-align:center;font-size:12.5px;color:var(--mut);line-height:1.9}
+.errbox{text-align:center;padding:60px 16px}.errbox .e{font-size:52px}
+@media print{
+  body{background:#fff}.wrap{max-width:none;padding:0}
+  .filters,.btns,#toast,.noprint,.crumb button{display:none!important}
+  .card,.kpi{box-shadow:none;border:1px solid #ddd;animation:none;break-inside:avoid}
+  .grid{gap:10px}.card{grid-column:span 12!important}
+  .hero{background:#fff!important;color:#000!important;border:2px solid var(--wine)}.hero *{color:#222!important}.hero .big{color:var(--wine)!important}
+  details{display:block}details[open] ul{display:block}
+}
+@media (prefers-reduced-motion:reduce){.card,.kpi{animation:none}.bar .t i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <img src="/logo.png" alt="سُفرة">
+      <div>
+        <h1>مرصد سُفرة</h1>
+        <p>لوحة بيانات مقترحة لبرنامج لتدوم والجمعيات <span class="chip"><i data-lucide="info"></i> مقترحة من فريق ذُخر، مو لوحة رسمية</span></p>
+      </div>
+    </div>
+    <div class="filters">
+      <div class="seg" id="daysSeg"><button data-d="7">7 أيام</button><button data-d="30">30 يوم</button><button data-d="90">90 يوم</button></div>
+      <select id="regionSel" aria-label="المنطقة"></select>
+      <label class="sw"><input type="checkbox" id="demoSw"><i class="t"></i><span>بيانات توضيحية</span></label>
+    </div>
+  </header>
+  <div id="banner"></div>
+  <div id="app"><div class="kpis"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div><div class="grid" style="margin-top:16px"><div class="sk c12" style="grid-column:span 12;min-height:220px"></div><div class="sk" style="grid-column:span 12;min-height:320px"></div></div></div>
+  <footer>مرصد سُفرة لوحة مقترحة من فريق ذُخر لغرض العرض، وليست لوحة رسمية لبرنامج لتدوم أو أي جهة. الأرقام مجمعة بدون هوية.</footer>
+</div>
+<div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const f1 = x => (Math.round(x * 10) / 10).toLocaleString('en-US'), f0 = x => Math.round(x).toLocaleString('en-US');
+const C = { wine: '#6E1E2B', wine2: '#8B3A47', wine3: '#A9606B', wine4: '#C58C94', wine5: '#E2BDC2', gold: '#B8892E', olive: '#6B7F3A', olive2: '#A3B070', sandd: '#D9C08A', ink: '#2B2B2B', mut: '#7B6F66', line: '#EADFD0' };
+const FONT = '"IBM Plex Sans Arabic", Tahoma, sans-serif';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const CHARITY_XY = { 'بريدة': [43.975, 26.326], 'الرياض': [46.6753, 24.7136], 'الأفلاج': [46.73, 22.28], 'الدمام': [50.0888, 26.4207], 'جدة': [39.1925, 21.4858], 'الطائف': [40.4158, 21.2703] };  // مراكز مدن الجمعيات (معلومة عامة)
+const OCC = { daily: 'أيام عادية', gathering: 'عزائم', other: 'مناسبات أخرى', ramadan: 'رمضان', eid: 'عيد' };
+const WK_ORDER = [6, 7, 1, 2, 3, 4, 5];   // الأسبوع السعودي يبدأ السبت
+const OUTCOME_AR = { eaten: 'أُكل', half: 'أُكل نصفه', donated: 'تبرع به', thrown: 'انرمى', expired: 'انتهت مدته', open: 'مفتوح' };
+
+const qs = new URLSearchParams(location.search);
+const S = { days: [7, 30, 90].includes(+qs.get('days')) ? +qs.get('days') : 30, region: qs.get('region') || '', demo: qs.get('demo') === '1' };
+let D = null, charts = [], GEO = null, reqId = 0;
+
+const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2400) };
+const icons = () => { try { lucide.createIcons() } catch (e) {} };
+function countUp(el, to, dec = 0, ms = 1100) {
+  if (!el) return;
+  const fmt = v => (dec ? v.toFixed(dec) : Math.round(v)).toLocaleString('en-US');
+  if (reduce || !isFinite(to)) { el.textContent = fmt(to); return }
+  const t0 = performance.now(); const step = t => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(to * e); if (k < 1) requestAnimationFrame(step) }; requestAnimationFrame(step);
+}
+function mk(id, opt, onClick) {
+  const el = document.getElementById(id); if (!el) return null;
+  const ch = echarts.init(el, null, { renderer: 'svg' });
+  ch.setOption({ textStyle: { fontFamily: FONT }, animationDuration: reduce ? 0 : 900, animationEasing: 'cubicOut', ...opt });
+  if (onClick) ch.on('click', onClick);
+  charts.push(ch); return ch;
+}
+const tipCss = 'direction:rtl;text-align:right;font-family:' + FONT.replace(/"/g, "'") + ';border-radius:10px;';
+const TIP = { backgroundColor: '#fff', borderColor: C.line, textStyle: { color: C.ink, fontFamily: FONT, fontSize: 13 }, extraCssText: 'box-shadow:0 4px 16px rgba(110,30,43,.15);' + tipCss };
+function spark(vals, color) {
+  if (!vals || vals.length < 2 || !vals.some(v => v > 0)) return '';
+  const W = 120, H = 30, mx = Math.max(...vals), mn = Math.min(...vals), rg = mx - mn || 1;
+  const pts = vals.map((v, i) => [i / (vals.length - 1) * W, H - 3 - (v - mn) / rg * (H - 8)]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  return `<svg class="sp" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="direction:ltr"><path d="${d} L${W} ${H} L0 ${H} Z" fill="${color}" opacity=".12"/><path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>`;
+}
+const ma7 = a => a.map((_, i) => { const s = a.slice(Math.max(0, i - 6), i + 1); return Math.round(s.reduce((x, y) => x + y, 0) / s.length * 100) / 100 });
+const srcLink = (n, u) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>` : `<span class="cons">${esc(n)}</span>`;
+
+/* ---------- الفلاتر والرابط ---------- */
+function syncUrl() { const p = new URLSearchParams(); if (S.days !== 30) p.set('days', S.days); if (S.region) p.set('region', S.region); if (S.demo) p.set('demo', '1'); history.replaceState(null, '', location.pathname + (p.toString() ? '?' + p : '')) }
+function paintFilters() {
+  $$('#daysSeg button').forEach(b => b.classList.toggle('on', +b.dataset.d === S.days));
+  $('#demoSw').checked = S.demo;
+  $('#banner').innerHTML = S.demo ? `<div class="banner"><i data-lucide="flask-conical"></i><span><b>تعرض اللوحة بيانات توضيحية لأسر تجريبية لغرض العرض.</b> الأرقام مو لأسر حقيقية.</span></div>` : '';
+  icons();
+}
+function fillRegions(list) {
+  const sel = $('#regionSel'); sel.innerHTML = `<option value="">كل المناطق</option>` + (list || []).map(r => `<option ${r === S.region ? 'selected' : ''}>${esc(r)}</option>`).join('');
+}
+$('#daysSeg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.days = +b.dataset.d; reload() });
+$('#regionSel').addEventListener('change', e => { S.region = e.target.value; reload() });
+$('#demoSw').addEventListener('change', e => { S.demo = e.target.checked; reload() });
+function setRegion(r) { S.region = S.region === r ? '' : r; reload() }
+
+/* ---------- التحميل ---------- */
+async function reload() {
+  syncUrl(); paintFilters();
+  const id = ++reqId;
+  charts.forEach(c => c.dispose()); charts = [];
+  $('#app').innerHTML = `<div class="kpis"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div><div class="grid" style="margin-top:16px"><div class="sk" style="grid-column:span 12;min-height:220px"></div><div class="sk" style="grid-column:span 12;min-height:320px"></div></div>`;
+  const p = `days=${S.days}&demo=${S.demo ? 1 : 0}` + (S.region ? '&region=' + encodeURIComponent(S.region) : '');
+  try {
+    const [r, g] = await Promise.all([fetch('/api/observatory?' + p), GEO ? Promise.resolve(GEO) : fetch('/data/sa-regions.json').then(x => x.json())]);
+    if (!r.ok) throw new Error('http ' + r.status);
+    if (id !== reqId) return;
+    GEO = g; D = await r.json(); fillRegions(D.regions); render(D);
+    fetch('/api/insights?' + p).then(x => x.ok ? x.json() : null).then(j => { if (id === reqId) renderInsights(j) }).catch(() => renderInsights(null));
+  } catch (e) {
+    if (id !== reqId) return;
+    $('#app').innerHTML = `<div class="card errbox"><div class="e">😅</div><h2 style="justify-content:center">ما قدرنا نحمّل المرصد</h2><p class="sub">جرّبوا بعد شوي.</p><button class="btn" onclick="reload()"><i data-lucide="refresh-cw"></i> أعد المحاولة</button></div>`; icons();
+  }
+}
+
+/* ---------- الرسم ---------- */
+function render(D) {
+  const k = D.kpis;
+  if (!k || !k.meals) {
+    $('#app').innerHTML = `<div class="card empty"><div class="e">🗺️</div><h2 style="justify-content:center">${S.demo ? 'ما فيه بيانات لهذا الفلتر' : 'لا توجد بيانات حقيقية بعد'}</h2><p>${S.demo ? 'جرّبوا فترة أو منطقة ثانية.' : 'ما سجّلت أسر حقيقية وجبات للحين. تقدرون تستعرضون شكل اللوحة ببيانات توضيحية لأسر تجريبية.'}</p><div class="btns" style="justify-content:center">${S.demo ? (S.region ? '<button class="btn" id="clrR"><i data-lucide="x"></i> إلغاء فلتر المنطقة</button>' : '') : '<button class="btn" id="goDemo"><i data-lucide="flask-conical"></i> عرض بيانات توضيحية</button>'}</div></div>`;
+    const a = $('#goDemo'); if (a) a.onclick = () => { S.demo = true; reload() }; const b = $('#clrR'); if (b) b.onclick = () => { S.region = ''; reload() }; icons(); return;
+  }
+  const daily = D.daily || [], obs = daily.map(d => d.kg_observed), sav = daily.map(d => d.kg_saved), rate = daily.map(d => d.kg_observed ? d.kg_saved / d.kg_observed * 100 : 0);
+  const crumb = S.region ? `<span class="crumb"><span class="chip">${esc(S.region)}</span><button id="clrReg">إلغاء الفلتر</button></span>` : '';
+  const KP = [
+    ['users', 'الأسر النشطة', k.families_active, 0, '', `من ${f0(k.families_total)} أسرة`, null, ''],
+    ['utensils', 'وجبات محللة', k.meals, 0, '', '', daily.map(d => d.meals), C.wine],
+    ['scale', 'كجم مرصودة', k.kg_observed, 1, '', 'بواقي بعد الأكل', obs, C.gold],
+    ['leaf', 'كجم منقذة', k.kg_saved, 1, '', 'أُكلت أو تبرعنا بها', sav, C.olive, 'olive'],
+    ['hand-heart', 'كجم متبرع بها', k.kg_donated, 1, '', 'لجمعيات حفظ النعمة', null, ''],
+    ['banknote', 'ريال منقذة', k.sar_saved, 0, '', 'بأسعار السوق التقريبية', null, ''],
+    ['percent', 'نسبة الإنقاذ', k.save_rate_pct || 0, 1, '%', 'المنقذ ÷ المرصود', rate, C.olive, 'olive'],
+    ['cloud', 'كربون مُتجنَّب', k.kg_saved * 2.5, 0, ' كجم', 'تقديري: 2.5 كجم لكل كجم أكل', null, ''],
+  ];
+  const kp = KP.map((x, i) => `<div class="kpi ${x[8] || ''}" style="animation-delay:${i * 50}ms"><div class="l"><i data-lucide="${x[0]}"></i>${x[1]}</div><div class="v"><span data-cu="${x[2]}" data-dec="${x[3]}">0</span>${x[4] ? '<small>' + x[4].trim() + '</small>' : ''}</div><div class="n">${x[5] || '&nbsp;'}</div>${spark(x[6], x[7])}</div>`).join('');
+  const bc = D.behavior_change || {}, hasBc = bc.families >= 3 && bc.first_week_avg_g && bc.last_week_avg_g;
+  const down = hasBc && bc.change_pct < 0;
+  const hero = `<div class="card hero c12"><h2><i data-lucide="sprout"></i> من الوعي إلى السلوك</h2><p class="sub">هل تغيّرت بواقي البيوت بعد ما بدأت تستخدم سُفرة؟</p>` + (hasBc ? `<div class="row"><div><div class="big"><span data-cu="${Math.abs(bc.change_pct)}" data-dec="0">0</span><small>%</small></div><p>${down ? 'انخفض' : 'ارتفع'} متوسط بواقي الوجبة بين <b>أول أسبوع</b> و<b>آخر أسبوع</b> من استخدام الأسر، من <b>${f0(bc.first_week_avg_g)} جم</b> إلى <b>${f0(bc.last_week_avg_g)} جم</b>، لدى <b>${f0(bc.families)} أسرة</b>.</p><div class="how"><b>طريقة الحساب:</b> لكل أسرة فترة نشاطها 14 يوم أو أكثر نقارن متوسط وزن البواقي للوجبة في أول 7 أيام بآخر 7 أيام، ثم نأخذ متوسط الأسر. ما يُعرض إلا لو توفرت 3 أسر على الأقل.</div></div><div class="ch s" id="chHero" style="height:250px"></div></div>` : `<div class="empty" style="color:#F0DDB0"><p>نحتاج 3 أسر على الأقل نشاطها 14 يوم أو أكثر عشان نحسب التغيّر السلوكي بدقة.</p></div>`) + `</div>`;
+  const reg = (D.by_region || []).filter(r => !r.empty);
+  const mapCard = `<div class="card c8"><h2><i data-lucide="map"></i> خريطة المملكة الحرارية ${crumb}</h2><p class="sub">متوسط البواقي لكل أسرة شهريًا (كجم) حسب المنطقة. اضغطوا على منطقة لتصفية اللوحة، والنقاط الذهبية جمعيات حفظ النعمة.</p><div class="ch l" id="chMap"></div><div class="src">${esc((GEO && GEO.attribution) || '')} <a href="${esc((GEO && GEO.source) || '#')}" target="_blank" rel="noopener">المصدر: geoBoundaries</a>. المناطق اللي فيها أقل من 3 أسر ما نعرض أرقامها حفاظًا على الخصوصية.</div></div>`;
+  const cityCard = `<div class="card c4"><h2><i data-lucide="building-2"></i> ترتيب المدن</h2><p class="sub">كجم بواقي لكل أسرة شهريًا. المدن الأقل من 3 أسر مدموجة في «مدن أخرى».</p><div class="ch l" id="chCity"></div></div>`;
+  const curve = `<div class="card c12"><h2><i data-lucide="trending-up"></i> المنحنى اليومي</h2><p class="sub">الكيلوات المرصودة مقابل المنقذة يوميًا، مع متوسط متحرك 7 أيام. (اليوم الجاري غير مكتمل فما نعرضه.)</p><div class="ch m" id="chDaily"></div></div>`;
+  const top = D.top_items || [], maxT = Math.max(1, ...top.map(t => t.kg));
+  const treeCard = `<div class="card c8"><h2><i data-lucide="pie-chart"></i> وش يزيد في بيوتنا؟</h2><p class="sub">أنواع الأكل الباقي بالكيلو (مساحة المستطيل = الكمية).</p><div class="ch m" id="chTree"></div></div>
+    <div class="card c4"><h2><i data-lucide="list-ordered"></i> أعلى 8 أصناف</h2><p class="sub">حسب الكيلوات الباقية.</p><div class="list">${top.map(t => `<div class="bar g"><div class="h"><b>${esc(t.name)}</b><span>${f1(t.kg)} كجم · ${f0(t.times)} مرة</span></div><div class="t"><i data-w="${t.kg / maxT * 100}"></i></div></div>`).join('') || '<div class="empty">لا توجد بيانات</div>'}</div></div>`;
+  const sankey = `<div class="card c12"><h2><i data-lucide="git-branch"></i> رحلة الأكل</h2><p class="sub">من التحليل، إلى التخزين (ثلاجة أو فريزر أو بدون)، إلى المصير. سُمك المسار = الكيلوات.</p><div class="ch l" id="chSankey" style="height:400px"></div></div>`;
+  const heat = `<div class="card c6"><h2><i data-lucide="calendar-days"></i> متى تزيد البواقي؟</h2><p class="sub">متوسط وزن البواقي للوجبة (جم) حسب يوم الأسبوع ونوع الوجبة.</p><div class="ch m" id="chHeat"></div></div>`;
+  const occ = D.by_occasion || [], oDaily = occ.find(o => o.occasion === 'daily'), oGath = occ.find(o => o.occasion === 'gathering');
+  const mult = oDaily && oGath && oDaily.avg_g_per_meal ? oGath.avg_g_per_meal / oDaily.avg_g_per_meal : null;
+  const occCard = `<div class="card c6"><h2><i data-lucide="party-popper"></i> العزائم مقابل الأيام العادية</h2><p class="sub">متوسط وزن البواقي للوجبة (كجم) حسب المناسبة.</p><div class="ch s" id="chOcc"></div>${mult ? `<div class="mult">العزيمة تخلّف <b>${(Math.round(mult * 10) / 10).toLocaleString('en-US')}×</b> أضعاف بواقي اليوم العادي (${f1(oGath.avg_g_per_meal / 1000)} كجم مقابل ${f1(oDaily.avg_g_per_meal / 1000)} كجم للوجبة).</div>` : ''}</div>`;
+  const rc = D.rice || {}, cup = (fill) => `<svg viewBox="0 0 42 48"><defs><clipPath id="cp${fill * 10}"><rect x="0" y="${48 - 48 * fill}" width="42" height="48"/></clipPath></defs><path d="M6 8h30l-3 32a4 4 0 0 1-4 4H13a4 4 0 0 1-4-4z" fill="#fff" stroke="${C.wine}" stroke-width="2.4"/><path d="M6 8h30l-3 32a4 4 0 0 1-4 4H13a4 4 0 0 1-4-4z" fill="${C.gold}" clip-path="url(#cp${fill * 10})" opacity=".85"/></svg>`;
+  const cupsN = rc.extra_cups_per_meal || 0, cupsArr = []; for (let c = cupsN; c > 0; c -= 1) cupsArr.push(Math.min(1, c));
+  const riceCard = `<div class="card c6"><h2><i data-lucide="wheat"></i> مؤشر الرز</h2><p class="sub">الرز الباقي للوجبة، وما يعادله بالأكواب (الكوب = 600 جم رز).</p>` + (rc.avg_rice_left_g ? `<div class="stat"><div><b><span data-cu="${rc.avg_rice_left_g}" data-dec="0">0</span> جم</b><span>متوسط الرز الباقي للوجبة</span></div><div><b>${cupsN} كوب</b><span>يعادله تقريبًا (لأقرب نصف كوب)</span></div><div><b>${f0(rc.meals_with_rice)}</b><span>وجبة فيها رز</span></div></div><div class="cups">${cupsArr.map(cup).join('')}</div><p class="sub" style="margin:0">لو كل أسرة خفّضت الرز ${cupsN} كوب للوجبة، قلّ الباقي بنفس المقدار.</p>` : '<div class="empty">لا توجد وجبات فيها رز في هذا الفلتر</div>') + `</div>`;
+  const dn = D.donations || [], dCount = dn.reduce((s, x) => s + x.count, 0), dAgreed = dn.reduce((s, x) => s + x.agreed, 0);
+  const donCard = `<div class="card c12"><h2><i data-lucide="hand-heart"></i> التبرعات</h2><p class="sub">حسب جمعية حفظ النعمة، ونسبة الاتفاق بين الأسرة والجمعية.</p>` + (dn.length ? `<div class="stat"><div><b>${f0(dCount)}</b><span>طلب تبرع</span></div><div><b>${dCount ? Math.round(dAgreed / dCount * 100) : 0}%</b><span>نسبة الاتفاق (${f0(dAgreed)} من ${f0(dCount)})</span></div><div><b>${f1(dn.reduce((s, x) => s + x.kg, 0))} كجم</b><span>وزن الطلبات</span></div></div><div class="ch s" id="chDon" style="height:${Math.max(200, dn.length * 46)}px"></div>` : '<div class="empty">ما فيه تبرعات في هذا الفلتر</div>') + `</div>`;
+  const insCard = `<div class="card c12" id="insCard" style="display:none"></div>`;
+  const rules = (D.safety_rules || []).map(r => `<p class="rl">• ${esc(r.text)} <span style="color:var(--mut)">(${r.sources.map(s => srcLink(s.name, s.url)).join('، ')})</span></p>`).join('');
+  const how = `<div class="card c12"><h2><i data-lucide="shield-check"></i> كيف نحسب، والخصوصية</h2><p class="sub">المرصد لوحة مقترحة من فريق ذُخر، وليست لوحة رسمية.</p>
+    <details open><summary><i data-lucide="calculator"></i> كيف نحسب الأرقام</summary><ul>
+      <li><b>الكيلوات المرصودة:</b> مجموع أوزان الأصناف اللي حلّلتها الأسر من صور الباقي (تقدير من الصورة).</li>
+      <li><b>المنقذ:</b> الأكل اللي انأكل أو تبرعنا به بالكامل، ونصف وزن اللي انأكل نصه. <b>المهدور:</b> الأكل اللي انرمى أو انتهت مدته.</li>
+      <li><b>نسبة الإنقاذ</b> = المنقذ ÷ المرصود. وما يُحسب «مفتوح» (لسا ما تحدد مصيره) في المنقذ ولا المهدور.</li>
+      <li><b>الكربون المتجنَّب:</b> 2.5 كجم لكل كجم أكل منقذ، وهو <b>تقديري</b> وليس قياسًا.</li>
+      <li><b>الأكواب:</b> الكوب = 600 جم رز مطبوخ، ويُقرَّب لأقرب نصف كوب.</li>
+      <li><b>التغيّر السلوكي:</b> مقارنة أول أسبوع بآخر أسبوع لكل أسرة (فترة 14 يوم فأكثر) ثم متوسط الأسر.</li>
+      <li><b>الريالات المنقذة:</b> وزن المنقذ × سعر الكيلو التقريبي لنوع الأكل في جدول سُفرة.</li></ul></details>
+    <details><summary><i data-lucide="lock"></i> الخصوصية</summary><ul>
+      <li>كل الأرقام مجمعة: ما فيه أسماء ولا مواقع دقيقة ولا معرّفات أسر.</li>
+      <li>المدن والمناطق اللي فيها أقل من 3 أسر ما نعرض أرقامها (تُدمج أو تُخفى).</li>
+      <li>الخريطة تعرض مستوى المنطقة الإدارية فقط. ونقاط الجمعيات هي مدن الجمعيات المعروفة وليست مواقع أسر.</li>
+      <li>${S.demo ? 'الصفحة تعرض الحين <b>بيانات توضيحية</b> لأسر تجريبية، ولا تختلط ببيانات الأسر الحقيقية.' : 'الأسر التجريبية غير محسوبة هنا.'}</li></ul></details>
+    <details><summary><i data-lucide="book-open"></i> مصادر مدد الحفظ وقواعد السلامة</summary><div style="padding-bottom:8px">${rules}<p class="rl"><span class="cons">تقدير متحفظ</span> يعني قيمة من سُفرة مو من جدول رسمي.</p></div></details>
+    <div class="src">الخريطة: ${esc((GEO && GEO.attribution) || '')}</div></div>`;
+  const acts = `<div class="card c12 noprint"><div class="btns"><button class="btn" id="bCsv"><i data-lucide="download"></i> تنزيل CSV</button><button class="btn o" id="bPrint"><i data-lucide="printer"></i> طباعة / PDF</button><button class="btn o" id="bLink"><i data-lucide="link"></i> نسخ الرابط</button></div></div>`;
+  $('#app').innerHTML = `<div class="kpis">${kp}</div><div class="grid" style="margin-top:16px">${hero}${mapCard}${cityCard}${curve}${treeCard}${sankey}${heat}${occCard}${riceCard}${donCard}${insCard}${how}${acts}</div>`;
+  icons();
+  $$('[data-cu]').forEach(e => countUp(e, +e.dataset.cu, +e.dataset.dec));
+  $$('.bar .t i[data-w]').forEach(i => requestAnimationFrame(() => { i.style.width = i.dataset.w + '%' }));
+  const cr = $('#clrReg'); if (cr) cr.onclick = () => { S.region = ''; reload() };
+  $('#bCsv').onclick = () => csv(D); $('#bPrint').onclick = () => { charts.forEach(c => c.resize()); setTimeout(() => window.print(), 200) };
+  $('#bLink').onclick = async () => { try { await navigator.clipboard.writeText(location.href); toast('تم نسخ الرابط ✓') } catch (e) { toast('انسخوا الرابط من شريط العنوان') } };
+  drawCharts(D, { hasBc, bc, reg, oDaily, oGath });
+}
+
+function drawCharts(D, x) {
+  if (x.hasBc) mk('chHero', { grid: { left: 6, right: 6, top: 34, bottom: 4, containLabel: true }, xAxis: { type: 'category', data: ['أول أسبوع', 'آخر أسبوع'], axisTick: { show: false }, axisLine: { lineStyle: { color: '#ffffff55' } }, axisLabel: { color: '#fff', fontSize: 13, fontFamily: FONT } }, yAxis: { type: 'value', show: false, max: v => v.max * 1.2 },
+    series: [{ type: 'bar', barWidth: '42%', data: [{ value: x.bc.first_week_avg_g, itemStyle: { color: C.sandd, borderRadius: [10, 10, 0, 0] } }, { value: x.bc.last_week_avg_g, itemStyle: { color: C.olive2, borderRadius: [10, 10, 0, 0] } }], label: { show: true, position: 'top', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: FONT, formatter: p => f0(p.value) + ' جم' }, animationDelay: i => i * 350, animationDuration: 1200 }] });
+
+  // الخريطة الحرارية
+  echarts.registerMap('SA', GEO);
+  const vis = x.reg.filter(r => !r.hidden).map(r => ({ name: r.region, value: r.kg_per_family_month, r }));
+  const vals = vis.map(v => v.value), mn = vals.length ? Math.min(...vals) : 0, mx = vals.length ? Math.max(...vals) : 1;
+  const pts = (D.donations || []).filter(d => CHARITY_XY[d.city]).map(d => ({ name: d.charity, value: [...CHARITY_XY[d.city], d.kg], d }));
+  mk('chMap', {
+    tooltip: { ...TIP, trigger: 'item', formatter: p => {
+      if (p.seriesType === 'scatter' || p.seriesType === 'effectScatter') return `<b>${esc(p.data.d.charity)}</b><br>${esc(p.data.d.city)}<br>${p.data.d.count} طلب · ${f1(p.data.d.kg)} كجم`;
+      const r = (D.by_region || []).find(q => q.region === p.name);
+      if (!r || r.empty) return `<b>${esc(p.name)}</b><br>لا توجد بيانات`;
+      if (r.hidden) return `<b>${esc(p.name)}</b><br>أقل من 3 أسر: ما نعرض الأرقام حفاظًا على الخصوصية`;
+      return `<b>${esc(p.name)}</b><br>الأسر: ${f0(r.families)}<br>بواقي/أسرة/شهر: <b>${f1(r.kg_per_family_month)} كجم</b><br>المرصود: ${f1(r.kg_observed)} كجم<br>المنقذ: ${f1(r.kg_saved)} كجم<br>المتبرع به: ${f1(r.kg_donated)} كجم`;
+    } },
+    visualMap: vis.length ? { min: Math.floor(mn * 0.9), max: Math.ceil(mx * 1.05) || 1, orient: 'horizontal', left: 'center', bottom: 6, itemWidth: 14, itemHeight: 120, text: ['أعلى', 'أقل'], textStyle: { color: C.mut, fontFamily: FONT }, calculable: false, seriesIndex: 0, inRange: { color: ['#F6EAEA', C.wine5, C.wine3, C.wine] } } : undefined,
+    geo: { map: 'SA', roam: false, layoutCenter: ['50%', '47%'], layoutSize: '100%', aspectScale: 0.95, label: { show: true, fontSize: 10, color: '#5a4a40', fontFamily: FONT }, itemStyle: { areaColor: '#EFE6D8', borderColor: '#fff', borderWidth: 1.2 }, emphasis: { label: { color: '#fff' }, itemStyle: { areaColor: C.wine2 } }, regions: S.region ? [{ name: S.region, itemStyle: { borderColor: C.gold, borderWidth: 3 } }] : [] },
+    series: [{ type: 'map', geoIndex: 0, data: vis }, ...(pts.length ? [{ type: 'scatter', coordinateSystem: 'geo', symbolSize: v => 10 + Math.min(18, Math.sqrt(v[2]) * 1.6), itemStyle: { color: C.gold, borderColor: '#fff', borderWidth: 1.5, shadowBlur: 6, shadowColor: 'rgba(184,137,46,.5)' }, data: pts, z: 5 }] : [])],
+  }, p => { if (p.componentType === 'geo' || p.seriesType === 'map') { const r = (D.by_region || []).find(q => q.region === p.name); if (r && !r.empty && !r.hidden) setRegion(p.name); else toast(r && r.hidden ? 'أقل من 3 أسر: ما نعرض أرقامها حفاظًا على الخصوصية' : 'لا توجد بيانات لهذه المنطقة') } });
+
+  // ترتيب المدن
+  const cities = [...(D.by_city || [])].sort((a, b) => a.kg_per_family_month - b.kg_per_family_month);
+  mk('chCity', { grid: { left: 4, right: 52, top: 6, bottom: 6, containLabel: true }, tooltip: { ...TIP, trigger: 'axis', axisPointer: { type: 'none' }, formatter: p => { const c = cities[p[0].dataIndex]; return `<b>${esc(c.city)}</b><br>${f0(c.families)} أسرة · ${f0(c.meals)} وجبة<br>بواقي/أسرة/شهر: <b>${f1(c.kg_per_family_month)} كجم</b><br>المنقذ ${f1(c.kg_saved)} كجم · المتبرع به ${f1(c.kg_donated)} كجم` } },
+    xAxis: { type: 'value', show: false }, yAxis: { type: 'category', data: cities.map(c => c.city), axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontSize: 13, fontFamily: FONT } },
+    series: [{ type: 'bar', barWidth: 16, data: cities.map((c, i) => ({ value: c.kg_per_family_month, itemStyle: { color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [{ offset: 0, color: C.wine }, { offset: 1, color: C.wine4 }]), borderRadius: 8 } })), label: { show: true, position: 'right', formatter: p => f1(p.value), color: C.gold, fontWeight: 700, fontFamily: FONT }, animationDelay: i => i * 90 }] });
+
+  // المنحنى اليومي
+  const days = (D.daily || []).slice(0, -1), lab = days.map(d => d.day.slice(5).replace('-', '/'));
+  mk('chDaily', { grid: { left: 8, right: 14, top: 36, bottom: 8, containLabel: true }, legend: { top: 0, textStyle: { color: C.mut, fontFamily: FONT }, itemWidth: 16, itemHeight: 8, icon: 'roundRect' },
+    tooltip: { ...TIP, trigger: 'axis', formatter: ps => `<b>${ps[0].axisValue}</b><br>` + ps.map(p => `${p.marker} ${p.seriesName}: <b>${f1(p.value)} كجم</b>`).join('<br>') },
+    xAxis: { type: 'category', data: lab, boundaryGap: false, axisTick: { show: false }, axisLabel: { color: C.mut, fontSize: 10.5, interval: Math.max(0, Math.floor(days.length / 6) - 1), fontFamily: FONT }, axisLine: { lineStyle: { color: C.line } } },
+    yAxis: { type: 'value', axisLabel: { color: C.mut, fontFamily: FONT }, splitLine: { lineStyle: { color: C.line, type: 'dashed' } } },
+    series: [
+      { name: 'المرصود', type: 'line', smooth: .3, showSymbol: false, data: days.map(d => d.kg_observed), itemStyle: { color: C.sandd }, lineStyle: { width: 1.6, color: C.sandd }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(217,192,138,.45)' }, { offset: 1, color: 'rgba(217,192,138,.02)' }]) } },
+      { name: 'المنقذ', type: 'line', smooth: .3, showSymbol: false, data: days.map(d => d.kg_saved), itemStyle: { color: C.olive2 }, lineStyle: { width: 1.6, color: C.olive2 }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(107,127,58,.35)' }, { offset: 1, color: 'rgba(107,127,58,.02)' }]) } },
+      { name: 'متوسط المرصود (7 أيام)', type: 'line', smooth: .35, showSymbol: false, data: ma7(days.map(d => d.kg_observed)), itemStyle: { color: C.gold }, lineStyle: { width: 3, color: C.gold } },
+      { name: 'متوسط المنقذ (7 أيام)', type: 'line', smooth: .35, showSymbol: false, data: ma7(days.map(d => d.kg_saved)), itemStyle: { color: C.olive }, lineStyle: { width: 3, color: C.olive } },
+    ] });
+
+  // Treemap
+  const pal = [C.wine, C.wine2, C.wine3, C.gold, '#C9A24F', C.olive, C.olive2, C.wine4, '#8B8077'];
+  mk('chTree', { tooltip: { ...TIP, formatter: p => `<b>${esc(p.name)}</b><br>${f1(p.value)} كجم · ${p.data.share}% من المرصود` },
+    series: [{ type: 'treemap', roam: false, nodeClick: false, breadcrumb: { show: false }, width: '100%', height: '100%', left: 0, top: 0, right: 0, bottom: 0, itemStyle: { borderColor: '#fff', borderWidth: 3, gapWidth: 2, borderRadius: 8 },
+      label: { show: true, formatter: p => `{n|${p.name}}\n{s|${p.data.share}%}`, rich: { n: { fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: FONT, lineHeight: 22 }, s: { fontSize: 12, color: '#ffffffcc', fontFamily: FONT } } }, upperLabel: { show: false },
+      data: (D.by_category || []).map((c, i) => ({ name: c.label || c.category, value: c.kg, share: c.share_pct, itemStyle: { color: pal[i % pal.length] } })) }] });
+
+  // Sankey
+  const nodeColor = { 'محلَّل': C.wine, 'ثلاجة': C.gold, 'فريزر': '#C9A24F', 'بدون تخزين': '#B9A98F', 'أُكل': C.olive, 'أُكل نصه': C.olive2, 'تبرعنا به': C.gold, 'انرمى': C.wine3, 'انتهت مدته': '#8B8077', 'مفتوح': '#CDBFA9' };
+  const depth = n => n === 'محلَّل' ? 0 : ['ثلاجة', 'فريزر', 'بدون تخزين'].includes(n) ? 1 : 2;
+  const used = new Set(); (D.sankey.links || []).forEach(l => { used.add(l.source); used.add(l.target) });
+  mk('chSankey', { tooltip: { ...TIP, trigger: 'item', formatter: p => p.dataType === 'edge' ? `${esc(p.data.source)} ← ${esc(p.data.target)}<br><b>${f1(p.data.value)} كجم</b>` : `<b>${esc(p.name)}</b><br>${f1(p.value)} كجم` },
+    series: [{ type: 'sankey', left: 8, right: 70, top: 10, bottom: 10, nodeWidth: 16, nodeGap: 12, layoutIterations: 0, draggable: false, emphasis: { focus: 'adjacency' },
+      label: { fontFamily: FONT, color: C.ink, fontSize: 13 }, lineStyle: { color: 'gradient', curveness: .5, opacity: .35 },
+      data: (D.sankey.nodes || []).filter(n => used.has(n)).map(n => ({ name: n, depth: depth(n), itemStyle: { color: nodeColor[n] || C.mut } })), links: D.sankey.links }] });
+
+  // خريطة حرارية: يوم الأسبوع × الوجبة
+  const slots = ['فطور', 'غداء', 'عشاء'].filter(s => (D.matrix || []).some(c => c.slot === s)), cellMap = {}; (D.matrix || []).forEach(c => { cellMap[c.dow + '|' + c.slot] = c });
+  const hd = []; WK_ORDER.forEach((dw, xi) => slots.forEach((s, yi) => { const c = cellMap[dw + '|' + s]; if (c) hd.push([xi, yi, c.avg_g, c.meals]) }));
+  const hv = hd.map(d => d[2]);
+  mk('chHeat', { grid: { left: 4, right: 10, top: 10, bottom: 46, containLabel: true }, tooltip: { ...TIP, formatter: p => `<b>${(D.weekdays || {})[WK_ORDER[p.value[0]]]} · ${slots[p.value[1]]}</b><br>متوسط البواقي: <b>${f0(p.value[2])} جم</b><br>عدد الوجبات: ${f0(p.value[3])}` },
+    xAxis: { type: 'category', data: WK_ORDER.map(d => (D.weekdays || {})[d]), splitArea: { show: true, areaStyle: { color: ['#fff', '#fff'] } }, axisTick: { show: false }, axisLabel: { color: C.ink, fontFamily: FONT, fontSize: 12, interval: 0 } },
+    yAxis: { type: 'category', data: slots, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontFamily: FONT, fontSize: 13 } },
+    visualMap: { dimension: 2, min: hv.length ? Math.min(...hv) : 0, max: hv.length ? Math.max(...hv) : 1, orient: 'horizontal', left: 'center', bottom: 0, itemWidth: 12, itemHeight: 110, text: ['أعلى', 'أقل'], calculable: false, textStyle: { color: C.mut, fontFamily: FONT }, inRange: { color: ['#F8EFD9', C.sandd, C.gold, C.wine3, C.wine] } },
+    series: [{ type: 'heatmap', data: hd, label: { show: true, formatter: p => f0(p.value[2]), color: '#2B2B2B', fontSize: 11, fontFamily: FONT }, itemStyle: { borderColor: '#fff', borderWidth: 3, borderRadius: 8 }, emphasis: { itemStyle: { shadowBlur: 8, shadowColor: 'rgba(0,0,0,.25)' } } }] });
+
+  // العزائم مقابل الأيام العادية
+  const oc = D.by_occasion || [];
+  mk('chOcc', { grid: { left: 8, right: 16, top: 26, bottom: 4, containLabel: true }, tooltip: { ...TIP, formatter: p => { const o = oc[p.dataIndex]; return `<b>${OCC[o.occasion] || o.occasion}</b><br>${f0(o.meals)} وجبة<br>متوسط البواقي: <b>${f1(o.avg_g_per_meal / 1000)} كجم</b>` } },
+    xAxis: { type: 'category', data: oc.map(o => OCC[o.occasion] || o.occasion), axisTick: { show: false }, axisLabel: { color: C.ink, fontFamily: FONT, fontSize: 13 } }, yAxis: { type: 'value', show: false },
+    series: [{ type: 'bar', barWidth: '45%', data: oc.map(o => ({ value: o.avg_g_per_meal / 1000, itemStyle: { color: o.occasion === 'daily' ? C.sandd : C.wine, borderRadius: [10, 10, 0, 0] } })), label: { show: true, position: 'top', formatter: p => f1(p.value) + ' كجم', color: C.gold, fontWeight: 700, fontFamily: FONT } }] });
+
+  // التبرعات
+  const dn = D.donations || [];
+  if (dn.length) mk('chDon', { grid: { left: 4, right: 120, top: 4, bottom: 4, containLabel: true }, tooltip: { ...TIP, trigger: 'axis', axisPointer: { type: 'none' }, formatter: p => { const d = dn[dn.length - 1 - p[0].dataIndex]; return `<b>${esc(d.charity)}</b><br>${esc(d.city)}<br>${d.count} طلب · اتفاق ${d.agreed} (${Math.round(d.agreed / d.count * 100)}%)<br>${f1(d.kg)} كجم` } },
+    xAxis: { type: 'value', show: false }, yAxis: { type: 'category', data: [...dn].reverse().map(d => d.charity + ' · ' + d.city), axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: C.ink, fontFamily: FONT, fontSize: 12.5 } },
+    series: [{ type: 'bar', barWidth: 18, data: [...dn].reverse().map(d => ({ value: d.kg, itemStyle: { color: C.gold, borderRadius: 8 } })), label: { show: true, position: 'right', formatter: p => { const d = dn[dn.length - 1 - p.dataIndex]; return `${f1(p.value)} كجم · اتفاق ${Math.round(d.agreed / d.count * 100)}%` }, color: C.ink, fontFamily: FONT, fontSize: 12 } }] });
+}
+
+/* ---------- الرؤى والتوصيات ---------- */
+function renderInsights(j) {
+  const el = $('#insCard'); if (!el) return;
+  const ins = (j && j.insights) || [], cam = (j && j.campaigns) || [];
+  if (!ins.length && !cam.length) { el.style.display = 'none'; return }
+  el.style.display = ''; el.innerHTML = `<h2><i data-lucide="sparkles"></i> رؤى وتوصيات للحملات</h2><p class="sub">مولّدة بالذكاء الاصطناعي من أرقام اللوحة فقط، وكل وحدة تذكر رقمها.${S.demo ? ' (بيانات توضيحية)' : ''}</p>
+    <div class="tt">رؤى من البيانات</div><div class="ins">${ins.map(i => `<div class="ib"><span class="fg">${esc(i.figure)}</span><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div>`).join('')}</div>
+    <div class="tt">توصيات لحملات توعوية</div><div class="ins">${cam.map(i => `<div class="ib c"><span class="fg">${esc(i.figure)}</span><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p></div>`).join('')}</div>`;
+  icons();
+}
+
+/* ---------- تنزيل CSV ---------- */
+function csv(D) {
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"', rows = [];
+  const sec = (title, head, data) => { rows.push([title].map(q).join(',')); rows.push(head.map(q).join(',')); data.forEach(r => rows.push(r.map(q).join(','))); rows.push('') };
+  const k = D.kpis;
+  rows.push(q('مرصد سُفرة (لوحة مقترحة)') + ',' + q(D.demo ? 'بيانات توضيحية' : 'بيانات الأسر الحقيقية') + ',' + q('الفترة: ' + D.days + ' يوم') + ',' + q('المنطقة: ' + (D.region || 'الكل')) + ',' + q(D.generated_at), ''); rows.push('');
+  sec('المؤشرات', ['المؤشر', 'القيمة'], [['الأسر النشطة', k.families_active], ['الوجبات', k.meals], ['كجم مرصودة', k.kg_observed], ['كجم منقذة', k.kg_saved], ['كجم مهدورة', k.kg_lost], ['كجم متبرع بها', k.kg_donated], ['ريال منقذة', k.sar_saved], ['نسبة الإنقاذ %', k.save_rate_pct], ['كربون متجنب (تقديري) كجم', Math.round(k.kg_saved * 25) / 10]]);
+  sec('المدن', ['المدينة', 'الأسر', 'الوجبات', 'كجم مرصودة', 'كجم منقذة', 'كجم متبرع بها', 'كجم بواقي لكل أسرة شهريًا'], (D.by_city || []).map(c => [c.city, c.families, c.meals, c.kg_observed, c.kg_saved, c.kg_donated, c.kg_per_family_month]));
+  sec('المناطق', ['المنطقة', 'الأسر', 'كجم مرصودة', 'كجم منقذة', 'كجم متبرع بها', 'كجم بواقي لكل أسرة شهريًا'], (D.by_region || []).filter(r => !r.empty && !r.hidden).map(r => [r.region, r.families, r.kg_observed, r.kg_saved, r.kg_donated, r.kg_per_family_month]));
+  sec('يوميًا', ['اليوم', 'الوجبات', 'كجم مرصودة', 'كجم منقذة'], (D.daily || []).map(d => [d.day, d.meals, d.kg_observed, d.kg_saved]));
+  sec('أنواع الأكل', ['النوع', 'كجم', 'النسبة %'], (D.by_category || []).map(c => [c.label || c.category, c.kg, c.share_pct]));
+  sec('أعلى الأصناف', ['الصنف', 'كجم', 'متوسط الجرام', 'عدد المرات'], (D.top_items || []).map(t => [t.name, t.kg, t.avg_g, t.times]));
+  sec('يوم الأسبوع × الوجبة', ['اليوم', 'الوجبة', 'الوجبات', 'متوسط الجرام'], (D.matrix || []).map(c => [(D.weekdays || {})[c.dow], c.slot, c.meals, c.avg_g]));
+  sec('المناسبات', ['المناسبة', 'الوجبات', 'كجم', 'متوسط الجرام للوجبة'], (D.by_occasion || []).map(o => [OCC[o.occasion] || o.occasion, o.meals, o.kg, o.avg_g_per_meal]));
+  sec('المصائر', ['المصير', 'كجم', 'الأصناف'], (D.outcomes || []).map(o => [OUTCOME_AR[o.outcome] || o.outcome, o.kg, o.items]));
+  sec('التبرعات', ['الجمعية', 'المدينة', 'الطلبات', 'اتفقوا', 'كجم'], (D.donations || []).map(d => [d.charity, d.city, d.count, d.agreed, d.kg]));
+  const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `sufra-observatory-${D.days}d${D.demo ? '-demo' : ''}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); toast('تم تنزيل الملف ✓');
+}
+
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => charts.forEach(c => c.resize()), 150) });
+if (typeof echarts === 'undefined') { $('#app').innerHTML = '<div class="card errbox"><div class="e">😅</div><h2 style="justify-content:center">تعذّر تحميل مكتبة الرسوم</h2><p class="sub">تأكدوا من الاتصال وأعيدوا المحاولة.</p></div>' } else reload();
+</script>
+</body>
+</html>

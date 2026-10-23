@@ -223,7 +223,10 @@ module.exports = async (req, res) => {
     const buttons = Array.isArray(j.buttons) ? j.buttons.filter(x => typeof x === 'string' && x.trim() && x.length <= 28).map(norm).slice(0, 3) : [];
     const transcript = j.transcript && j.transcript !== 'null' ? String(j.transcript).slice(0, 1000) : null;
     const str = (x, n) => x && x !== 'null' ? String(x).slice(0, n) : null;
-    res.status(200).json({ reply, buttons, action, choice: posInt(j.choice), number: posInt(j.number), number2: posInt(j.number2), value: str(j.value, 60), city: str(j.city, 40), data, verdict, sources, transcript, model });
+    // عدد الضيوف مكتوب بأرقام بالنص لكن النموذج فاته: نلقطه من الرسالة
+    let number = posInt(j.number);
+    if (action === 'gathering' && number == null) { const d = userText.replace(/[٠-٩]/g, ch => '٠١٢٣٤٥٦٧٨٩'.indexOf(ch)).match(/d+/); if (d) number = posInt(d[0]) }
+    res.status(200).json({ reply, buttons, action, choice: posInt(j.choice), number, number2: posInt(j.number2), value: str(j.value, 60), city: str(j.city, 40), data, verdict, sources, transcript, model });
   } catch (e) {
     res.status(502).json({ error: String((e && e.message) || e).slice(0, 300) });
   }

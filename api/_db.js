@@ -24,8 +24,9 @@ async function sb(method, path, { body, prefer, timeout = 8000 } = {}) {
 
 const db = {
   select: (table, query) => sb('GET', table + '?' + query),
-  insert: (table, rows) => sb('POST', table, { body: rows, prefer: 'return=representation' }),
+  insert: (table, rows, timeout) => sb('POST', table, { body: rows, prefer: 'return=representation', timeout }),
   update: (table, filter, patch) => sb('PATCH', table + '?' + filter, { body: patch, prefer: 'return=representation' }),
+  rpc: (fn, args) => sb('POST', 'rpc/' + fn, { body: args || {}, timeout: 15000 }),
   remove: (table, filter) => sb('DELETE', table + '?' + filter, { prefer: 'return=minimal' }),
 };
 

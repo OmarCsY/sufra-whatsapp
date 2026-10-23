@@ -10,13 +10,23 @@
       "maxDuration": 15
     },
     "api/seed.js": {
+      "maxDuration": 60
+    },
+    "api/observatory.js": {
       "maxDuration": 30
+    },
+    "api/insights.js": {
+      "maxDuration": 40
     }
   },
   "rewrites": [
     {
       "source": "/d/:token",
       "destination": "/dashboard.html"
+    },
+    {
+      "source": "/observatory",
+      "destination": "/observatory.html"
     }
   ]
 }

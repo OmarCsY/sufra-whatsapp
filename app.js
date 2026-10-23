@@ -79,6 +79,7 @@ function track(type, extra = {}) {
   if (!FAM || famOff()) return Promise.resolve(null);
   return fetch('/api/track', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...famCreds(), type, ...extra }), keepalive: true }).then(r => (r.ok ? r.json() : null)).catch(() => null);
 }
+const gatherCtx = () => (S.gather && Date.now() - S.gather.at < 24 * 36e5 ? { occasion: 'gathering', guests: S.gather.guests } : {});
 const mid = m => { m = m || S.meal; return (m && m.db_meal_id) || undefined };
 function dashUrl() { return S.tour ? location.origin + '/d/demo' : FAM ? location.origin + '/d/' + FAM.dash_token : null }
 function showDash() { const u = dashUrl(); if (u) linkBtns([[S.tour ? '📊 لوحة أسرة تجريبية' : '📊 لوحة أسرتكم', u, { live: true }]]) }
@@ -279,9 +280,9 @@ async function analyzePhoto(dataUrl, alt, tries) {
   const t = typingOn(); let j, err;
   const t7 = setTimeout(() => { st.textContent = 'يحلل الصورة…' }, 7000);
   const t15 = setTimeout(() => { them('لحظات، نحسب الأوزان بدقة ⏳'); chat.appendChild(t); scroll() }, 15000);
-  try { j = await api('/api/analyze', { image: dataUrl.split(',')[1], mime: 'image/jpeg', ...famCreds() }, TOUR.on ? 12000 : 60000) } catch (e) { err = e }
+  try { j = await api('/api/analyze', { image: dataUrl.split(',')[1], mime: 'image/jpeg', ...famCreds(), ...gatherCtx() }, TOUR.on ? 12000 : 60000) } catch (e) { err = e }
   clearTimeout(t7); clearTimeout(t15); typingOff(t);
-  if (!err) { track('photo', { payload: { via: j && j.via, items: (j && j.items || []).length } }); return showResult(j) }
+  if (!err) { if (j && j.db_meal_id) S.gather = null; track('photo', { payload: { via: j && j.via, items: (j && j.items || []).length } }); return showResult(j) }
   if (TOUR.on && alt) return photoScripted(alt, true); // الجولة: نتيجة احتياطية واقعية بدل الانتظار
   if (softErr(err) && tries < 1) {
     them(SOFT_MSG);
@@ -422,7 +423,8 @@ async function gath() {
 async function guestsMore() { await bot('حيّاهم الله 🤍 اكتبوا العدد التقريبي 👇'); btns([['', (t, n, n2) => n ? gq(n, n2 || n) : gath(), /\d|[٠-٩]/, 'guests']]) }
 const kg = x => (Math.round(x * 10) / 10).toString();
 async function gq(lo, hi) {
-  hi = hi || lo; track('gathering', { guests_min: lo, guests_max: hi, rice_kg: Math.round((lo + hi) / 2 * .24 * 10) / 10, meat_kg: Math.round((lo + hi) / 2 * .12 * 10) / 10 });
+  hi = hi || lo; S.gather = { guests: Math.round((lo + hi) / 2), at: Date.now() };   // الوجبة اللي تتحلل بعد العزيمة في نفس الجلسة تتسجل occasion = gathering
+  track('gathering', { guests_min: lo, guests_max: hi, rice_kg: Math.round((lo + hi) / 2 * .24 * 10) / 10, meat_kg: Math.round((lo + hi) / 2 * .12 * 10) / 10 });
   const who = lo === hi ? `<b>${lo} ضيف</b>` : `<b>${lo} إلى ${hi} ضيف</b>`;
   const r = lo === hi ? kg(lo * .24) : `${kg(lo * .24)} – ${kg(hi * .24)}`, m = lo === hi ? kg(lo * .12) : `${kg(lo * .12)} – ${kg(hi * .12)}`;
   await bot(`أبشروا 🤍 المقترح لـ${who}:\n🍚 رز (مطبوخ): تقريبًا <b>${r} كجم</b>\n🍖 لحم: تقريبًا <b>${m} كجم</b>\nمع هامش يحفظ الكرم والضيافة.\n\n💡 قدّموا على دفعات، وخلّوا الباقي في القدور مغطى، عشان لو زاد يصلح للتبرع.`);
@@ -837,6 +839,7 @@ document.getElementById('menu').onclick = e => { e.stopPropagation(); pop.classL
 document.addEventListener('click', () => pop.classList.remove('on'));
 document.getElementById('newChat').onclick = () => { pop.classList.remove('on'); start({ fresh: true }) };
 document.getElementById('dash').onclick = () => { pop.classList.remove('on'); const u = dashUrl(); if (u) window.open(u, '_blank', 'noopener'); else dashCard() };
+document.getElementById('obs').onclick = () => { pop.classList.remove('on'); window.open('/observatory' + (S.tour ? '?demo=1' : ''), '_blank', 'noopener') };
 document.getElementById('tour').onclick = () => { pop.classList.remove('on'); startTour() };
 buildSamples();
 start();
