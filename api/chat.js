@@ -6,17 +6,18 @@ const ACTIONS = ['litadoom', 'charity', 'gathering', 'photo', 'restart', 'choose
 const SCHEMA = {
   type: 'OBJECT',
   properties: {
-    reply: { type: 'STRING' },
-    buttons: { type: 'ARRAY', items: { type: 'STRING' } },
-    action: { type: 'STRING', nullable: true },
+    action: { type: 'STRING', enum: ['none', ...ACTIONS] },
     choice: { type: 'INTEGER', nullable: true },
     number: { type: 'INTEGER', nullable: true },
     number2: { type: 'INTEGER', nullable: true },
     value: { type: 'STRING', nullable: true },
     city: { type: 'STRING', nullable: true },
+    reply: { type: 'STRING' },
+    buttons: { type: 'ARRAY', items: { type: 'STRING' } },
     transcript: { type: 'STRING', nullable: true },
   },
-  required: ['reply'],
+  propertyOrdering: ['action', 'choice', 'number', 'number2', 'value', 'city', 'reply', 'buttons', 'transcript'],
+  required: ['action', 'reply'],
 };
 const posInt = x => (x != null && isFinite(x) && Number(x) > 0 && Number(x) < 100000) ? Math.round(Number(x)) : null;
 
@@ -72,7 +73,7 @@ function system(p) {
 ${Array.isArray(p.options) && p.options.length ? 'أزرار البوت المعلّقة الحين:\n' + p.options.slice(0, 6).map((o, i) => (i + 1) + ') ' + String(o).slice(0, 40)).join('\n') + '\n\n' : ''}${KINDS[p.kind] ? 'البوت ينتظر إدخال حر: ' + KINDS[p.kind] + '\n\n' : ''}عن الأسرة: عدد الأفراد ${p.size || 'غير محدد'}، لغة الطباخ ${p.lang || 'عربي'}.${p.meal ? `\nآخر وجبة حللها المحرك: ${String(p.meal).slice(0, 400)}` : ''}
 ${p.city ? `مدينة المستخدم: ${String(p.city).slice(0, 40)}\n` : ''}${p.charity ? `أقرب جمعية طلعت له: ${String(p.charity).slice(0, 80)}\n` : ''}${p.pending ? `سؤال البوت المعلّق حاليًا: ${String(p.pending).slice(0, 200)}\n` : ''}الوقت الآن في السعودية: ${nowKSA}.
 
-أرجع JSON فقط بهذا الشكل:
+أرجع JSON فقط بهذا الشكل (action = none لو ما فيه إجراء):
 {"reply":"نص الرد","buttons":["حتى 3 ردود سريعة اختيارية، كل واحد أقل من 20 حرف"],"action":"litadoom أو charity أو gathering أو photo أو restart أو choose أو answer أو null","choice":null,"number":null,"number2":null,"value":null,"city":null,"transcript":"نص الرسالة الصوتية كما قيلت إن كانت صوتية، وإلا null"}`;
 }
 
