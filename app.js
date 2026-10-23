@@ -751,7 +751,7 @@ async function voiceOut(blob, dur, levels) {
   catch (e) { payload = { mime: (blob.type || 'audio/webm').split(';')[0], data: await blobToB64(blob) } }
   try {
     const j = await askAI({ audio: payload }, hist);
-    if (j && j.transcript) { bub.querySelector('.t').insertAdjacentHTML('beforebegin', `<div class="tr"><small>النص</small>${esc(j.transcript)}</div>`); for (let k = H.length - 1; k >= 0; k--) if (H[k].text === '[رسالة صوتية]') { H[k] = { role: 'user', text: '[رسالة صوتية] ' + String(j.transcript).slice(0, 600) }; break } }
+    if (j && j.transcript) { for (let k = H.length - 1; k >= 0; k--) if (H[k].text === '[رسالة صوتية]') { H[k] = { role: 'user', text: '[رسالة صوتية] ' + String(j.transcript).slice(0, 600) }; break } }
   } catch (e) { bot('ما وضح الصوت عندنا 🙏 جرّبوا مرة ثانية أو اكتبوا رسالتكم.') }
 }
 async function toWav(blob) {
