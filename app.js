@@ -1,0 +1,399 @@
+/* سُفرة · واجهة بوت الواتساب التجريبية */
+const chat = document.getElementById('chat'), st = document.getElementById('st');
+const msg = document.getElementById('msg'), sendB = document.getElementById('send');
+const footer = document.querySelector('footer'), recT = document.getElementById('recT');
+const sheet = document.getElementById('sheet'), shade = document.getElementById('shade'), pop = document.getElementById('pop');
+
+let S = { size: '', lang: 'عربي', meal: null };
+let H = []; // ذاكرة المحادثة للذكاء الاصطناعي
+const API = { ok: false, ai: false, engine: false };
+const healthP = fetch('/api/health').then(r => r.ok ? r.json() : null).then(j => { if (j) { API.ok = true; API.ai = !!j.ai; API.engine = !!j.engine } }).catch(() => {});
+
+const SAMPLES = [
+  { src: 's-kabsa.jpg', label: 'كبسة دجاج', alt: 'plate' },
+  { src: 's-jareesh.jpg', label: 'جريش ولحم' },
+  { src: 's-tray.jpg', label: 'صينية رز بالخضار' },
+  { src: 's-pots.jpg', label: 'قدور العزيمة', alt: 'pots' },
+  { src: 's-shakshuka.jpg', label: 'شكشوكة' },
+  { src: 's-chair.jpg', label: 'صورة مو أكل', alt: 'none' },
+];
+
+/* ---------- أدوات ---------- */
+let actx;
+function ac() { try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {} return actx }
+function ding(f = 880, d = .08) { try { const a = ac(); const o = a.createOscillator(), g = a.createGain(); o.frequency.value = f; o.type = 'sine'; g.gain.setValueAtTime(.05, a.currentTime); g.gain.exponentialRampToValueAtTime(.0001, a.currentTime + d * 2); o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + d * 2) } catch (e) {} }
+const now = () => { const d = new Date(); let h = d.getHours(), m = String(d.getMinutes()).padStart(2, '0'); const p = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; return h + ':' + m + ' ' + p };
+const scroll = () => setTimeout(() => chat.scrollTo({ top: chat.scrollHeight, behavior: 'smooth' }), 30);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const num = s => { const t = String(s).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)); const m = t.match(/\d+/); return m ? parseInt(m[0], 10) : null };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmt = s => esc(s).replace(/\*\*?([^*\n]+)\*\*?/g, '<b>$1</b>');
+function el(h) { const d = document.createElement('div'); d.innerHTML = h; return d.firstElementChild }
+function strip(h) { const d = document.createElement('div'); d.innerHTML = h; d.querySelectorAll('.t,.voice,img').forEach(x => x.remove()); return d.textContent.trim() }
+function remember(role, text) { if (!text) return; H.push({ role, text: String(text).slice(0, 700) }); if (H.length > 16) H = H.slice(-16) }
+const TICK = '<svg class="tk" width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M11.1.7 5.4 7.3 3 5 2 6l3.5 3.3 6.7-7.6zM15 .7 9.3 7.3l-.9-.8-1 1 1.9 1.8L16 1.6z"/></svg>';
+function markRead() { chat.querySelectorAll('.tk:not(.read)').forEach(x => x.classList.add('read')) }
+
+let last = '';
+function day(t) { last = ''; chat.appendChild(el(`<div class="day">${t}</div>`)); scroll() }
+function note(t) { last = ''; chat.appendChild(el(`<div class="note">${t}</div>`)); scroll() }
+function me(html, cls = '') { const f = last !== 'me' ? ' first' : ''; last = 'me'; const n = el(`<div class="row me${f}"><div class="b ${cls}">${html}<span class="t">${now()} ${TICK}</span></div></div>`); chat.appendChild(n); ding(660); scroll(); setTimeout(markRead, 1200); return n }
+function them(html) { const f = last !== 'them' ? ' first' : ''; last = 'them'; chat.appendChild(el(`<div class="row them${f}"><div class="b">${html}<span class="t">${now()}</span></div></div>`)); remember('model', strip(html)); ding(980); scroll() }
+let PEND = null; // الخيارات المعلّقة: تُقبل بالضغط أو بالكتابة الحرة
+function btns(list, inline) {
+  const w = el(`<div class="btns${inline ? ' inline' : ''}" style="--n:${list.filter(x => x[0]).length}"></div>`);
+  const close = () => { [...w.children].forEach(x => x.disabled = true); if (PEND && PEND.w === w) PEND = null };
+  list.filter(x => x[0]).forEach(([label, fn]) => { const b = document.createElement('button'); b.textContent = label; b.onclick = () => { close(); me(esc(label)); remember('user', label); fn() }; w.appendChild(b) });
+  PEND = { w, close, opts: list.filter(x => x[2]).map(([label, fn, re]) => ({ label, fn, re })) };
+  chat.appendChild(w); const rb = [...chat.querySelectorAll('.row.them .b')].pop();
+  if (!w.children.length) { w.remove(); scroll(); return }
+  if (rb) { w.style.width = Math.max(rb.offsetWidth, chat.clientWidth * .6) + 'px'; rb.style.borderBottomLeftRadius = rb.style.borderBottomRightRadius = '0' }
+  scroll()
+}
+function skip(label, fn) { const b = el(`<button class="skip">⏩ ${label}</button>`); last = ''; b.onclick = () => { b.remove(); fn() }; chat.appendChild(b); scroll() }
+function typingOn() { st.textContent = 'يكتب…'; markRead(); const t = el(`<div class="row them${last !== 'them' ? ' first' : ''}"><div class="b typing"><i></i><i></i><i></i></div></div>`); chat.appendChild(t); scroll(); return t }
+function typingOff(t) { t && t.remove(); st.textContent = 'حساب أعمال' }
+async function bot(html, ms = 900) { const t = typingOn(); await wait(ms); typingOff(t); them(html) }
+
+async function api(path, body, ms = 45000) {
+  const c = new AbortController(); const to = setTimeout(() => c.abort(), ms);
+  try { const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: c.signal }); if (!r.ok) throw new Error('http ' + r.status); return await r.json() }
+  finally { clearTimeout(to) }
+}
+const blobToB64 = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(b) });
+
+/* ---------- البداية ---------- */
+const COOK = { 'عربي': 'اطبخي اليوم <b>5 أكواب رز</b> بدل 6.', 'English': 'Cook <b>5 cups of rice</b> today, not 6.', 'Tagalog': 'Magluto ng <b>5 tasang kanin</b> ngayon, hindi 6.', 'اردو': 'آج <b>5 کپ چاول</b> پکائیں، 6 نہیں۔', 'हिन्दी': 'आज <b>5 कप चावल</b> पकाएँ, 6 नहीं।', 'বাংলা': 'আজ <b>৫ কাপ চাল</b> রান্না করুন, ৬ নয়।', 'Indonesia': 'Masak <b>5 gelas beras</b> hari ini, bukan 6.' };
+
+async function start() {
+  H = []; S = { size: '', lang: 'عربي', meal: null }; chat.innerHTML = ''; last = '';
+  await Promise.race([healthP, wait(1500)]);
+  day('اليوم');
+  note(API.ai
+    ? '🔒 نسخة تجريبية من بوت سُفرة. أرسل صورة أكل حقيقية أو رسالة صوتية أو اكتب أي سؤال، والرد من محرك سُفرة.'
+    : '🔒 نسخة تجريبية لتدفق بوت سُفرة على الواتساب. جرّب الأزرار، واضغط 📷 لإرسال صورة.');
+  await bot('يا هلا ومرحبا بك في <b>سُفرة</b> 🌷\nنساعدك تحفظ نعمة بيتك وتوفّر، بصورة لسفرتكم بعد الأكل.\n\nعشان نضبط كميات الطبخ بدقة، <b>كم عدد أفراد البيت؟</b>\n<span class="hint">اختاروا أو اكتبوا العدد</span>', 700);
+  btns([['1 – 3', () => size('1-3')], ['4 – 6', () => size('4-6')], ['7 أو أكثر', () => size('7+')], ['', (t, n) => n ? size(String(n)) : size(t), /^\D{0,12}(\d+|[٠-٩]+)|^(نحن |احنا |إحنا )?(واحد|اثنين|ثنين|ثلاث|أربع|اربع|خمس|ست|سبع|ثمان|تسع|عشر)[ةه]?(\s|$)/]], true);
+}
+const WORDN = { 'واحد': 1, 'اثنين': 2, 'ثنين': 2, 'ثلاث': 3, 'أربع': 4, 'اربع': 4, 'خمس': 5, 'ست': 6, 'سبع': 7, 'ثمان': 8, 'تسع': 9, 'عشر': 10 };
+const LANGS = [['عربي', /عرب|arab/i], ['English', /english|انجل|إنجل|انقل|إنقل/i], ['Tagalog', /tagalog|filip|فلبين|تاغالوغ|تقالوق/i], ['اردو', /urdu|ارد|أورد|اورد|باكستان/i], ['हिन्दी', /hindi|هند/i], ['বাংলা', /bangla|bengal|بنغال/i], ['Indonesia', /indones|اندونيس|إندونيس/i]];
+async function size(s) {
+  if (/^\d+$/.test(s)) { const n = parseInt(s, 10); S.size = n + (n === 1 ? ' فرد' : ' أفراد') } else S.size = s;
+  await bot('تم 👌 وش لغة الشخص اللي يطبخ عندكم غالبًا؟\n<span class="hint">عشان نرسل له التعليمات بلغته. اختاروا أو اكتبوا اللغة</span>');
+  btns([['عربي', () => lang('عربي')], ['English', () => lang('English')], ['Tagalog', () => lang('Tagalog')], ['اردو', () => lang('اردو')], ['', t => lang(t), /^(عرب|arab|english|انجل|إنجل|tagalog|filip|فلبين|urdu|ارد|أورد|اورد|hindi|هند|bangla|bengal|بنغال|indones|اندونيس|إندونيس|الفلبيني|الهندي|الانجليزي|الإنجليزي|العربي|الأوردو|الاوردو)/i]], true)
+}
+async function lang(l) {
+  const hit = LANGS.find(([n, re]) => n === l || re.test(l)); S.lang = hit ? hit[0] : String(l).trim().slice(0, 20);
+  await bot('ممتاز، جاهزين ✅\nبعد الأكل صوّروا <b>البواقي</b> وأرسلوها هنا 📷\n<span style="color:#667781;font-size:13px">' + (API.ai ? '(تقدرون بعد تكتبون أو ترسلون رسالة صوتية 🎙️ بأي سؤال، أو تكتبون «عزيمة» لو عندكم مناسبة)' : '(اضغط 📷 تحت، أو اكتبوا «عزيمة» لو عندكم مناسبة)') + '</span>');
+}
+
+/* ---------- الصور ---------- */
+function openSheet() { sheet.classList.add('on'); shade.classList.add('on') }
+function closeSheet() { sheet.classList.remove('on'); shade.classList.remove('on') }
+function compress(blob, max = 1024, q = .82) {
+  return new Promise((res, rej) => { const u = URL.createObjectURL(blob); const im = new Image(); im.onload = () => { let w = im.naturalWidth, h = im.naturalHeight; const k = Math.min(1, max / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k); const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(im, 0, 0, w, h); URL.revokeObjectURL(u); res(c.toDataURL('image/jpeg', q)) }; im.onerror = e => { URL.revokeObjectURL(u); rej(e) }; im.src = u })
+}
+
+function buildSamples() {
+  const g = document.getElementById('samples'); g.innerHTML = '';
+  SAMPLES.forEach(s => {
+    const b = document.createElement('button');
+    if (s.none) { b.innerHTML = `<div class="ph" style="background:#E9EDEF">🛋️</div>${s.label}`; b.onclick = () => photoScripted('none') }
+    else {
+      b.innerHTML = `<img src="${s.src}" alt="">${s.label}`;
+      const img = b.querySelector('img');
+      img.onerror = () => { if (s.alt === 'pots') { img.replaceWith(el('<div class="ph pots" style="width:100%;height:auto;margin:0 0 6px;padding:0"></div>')); b.onclick = () => photoScripted('pots') } else b.remove() };
+      b.onclick = () => sample(s);
+    }
+    g.appendChild(b);
+  });
+}
+async function sample(s) {
+  closeSheet();
+  if (!API.ok) return photoScripted(s.alt || 'plate');
+  try { const blob = await (await fetch(s.src)).blob(); await realPhoto(await compress(blob), s.alt) } catch (e) { photoScripted(s.alt || 'plate') }
+}
+async function pickFile(input) {
+  const f = input.files && input.files[0]; input.value = ''; if (!f) return; closeSheet();
+  let data; try { data = await compress(f) } catch (e) { return bot('ما قدرنا نفتح الصورة 🤔 جرّبوا صورة ثانية.') }
+  if (!API.ok) { me(`<img src="${data}" alt="">`, 'media'); remember('user', '[أرسل صورة]'); return bot('وصلت الصورة 📷 التحليل الحقيقي يشتغل في النسخة المنشورة من الموقع.') }
+  realPhoto(data);
+}
+
+async function realPhoto(dataUrl, alt) {
+  me(`<img src="${dataUrl}" alt="">`, 'media'); remember('user', '[أرسل صورة للأكل]');
+  await wait(250); await bot('ثواني نحلل الصورة… 🔍', 500);
+  const t = typingOn(); let j;
+  try { j = await api('/api/analyze', { image: dataUrl.split(',')[1], mime: 'image/jpeg' }, 60000) }
+  catch (e) { typingOff(t); if (alt) return photoScripted(alt, true); return them('الخدمة عليها ضغط الحين 🙏 جرّبوا ترسلون الصورة مرة ثانية بعد شوي.') }
+  typingOff(t); showResult(j);
+}
+
+const SAR = n => Math.round(Number(n) || 0);
+function whenTxt(iso) {
+  const d = new Date(iso); if (isNaN(d)) return null;
+  const n = new Date(); const day0 = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day0(d) - day0(n)) / 864e5);
+  let h = d.getHours(), m = String(d.getMinutes()).padStart(2, '0'); const p = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; const tm = `${h}:${m} ${p}`;
+  if (diff <= 0) return 'اليوم ' + tm; if (diff === 1) return 'بكرة ' + tm; if (diff === 2) return 'بعد بكرة';
+  return 'خلال ' + diff + ' أيام';
+}
+function mealSummary(m) { if (!m || !m.items) return ''; return m.items.map(i => `${i.name} ${Math.round(i.grams)} جم`).join('، ') + `؛ القيمة ${SAR(m.total_value_sar)} ريال` + (m.next_day_suggestion ? `؛ اقتراح الغد: ${m.next_day_suggestion}` : '') }
+
+async function showResult(j) {
+  if (!j || !Array.isArray(j.items) || !j.items.length) { them('ما قدرنا نتعرف على أكل في الصورة 🤔\nصوّروا الصحن كامل من فوق وبإضاءة واضحة، وجربوا مرة ثانية.'); return }
+  S.meal = j;
+  const lines = j.items.map(i => `• ${esc(i.name)}: حوالي <b>${Math.round(i.grams)} جم</b> (${SAR(i.value_sar)} ريال)`).join('\n');
+  const soon = j.items.map(i => i.safe_until).filter(Boolean).sort()[0];
+  const sv = Number(j.servings_left) || 0;
+  let h = `بالعافية عليكم 🍽️\n<b>رصدنا في السفرة:</b>\n${lines}\n\n💰 إجمالي القيمة: <b>${SAR(j.total_value_sar)} ريال</b>\n👥 تكفي تقريبًا: <b>${sv >= 1 ? sv + (sv === 1 ? ' شخص' : sv <= 10 ? ' أشخاص' : ' شخص') : 'أقل من حصة'}</b>`;
+  const w = soon && whenTxt(soon); if (w) h += `\n⏰ الأفضل تستخدمونه قبل: <b>${w}</b>`;
+  if (j.next_day_suggestion) h += `\n\n💡 اقتراح بكرة: <b>${esc(j.next_day_suggestion)}</b>`;
+  them(h);
+  const tg = j.items.reduce((x, i) => x + (Number(i.grams) || 0), 0);
+  if (j.charity_suggestion || tg >= 3000) { await bot('باقي عندكم كمية كبيرة 🍲\nهل هذا الأكل <b>تقدّم على السفرة</b>، ولا باقي في القدور ما أحد أكل منه؟', 900); btns([['باقي في القدور', served, /^لا|باقي|بالقدور|في القدور|ما تقد|ما انقد|محد|ما أحد|ما احد|ما أكل منه|ما اكل منه|ما انلمس/], ['تقدّم على السفرة', homePlan, /^(نعم|ايه|إيه|اي|أي)(\s|$)|^تقد|انقد|قدمناه|قدّمناه|حطيناه على|أكلوا منه|اكلوا منه/]]) }
+  else btns([['دخل الثلاجة ✅', fridge]]);
+}
+
+/* سيناريو احتياطي بدون اتصال */
+async function photoScripted(p, already) {
+  closeSheet();
+  if (p === 'plate') {
+    if (!already) { me('<img src="plate.jpg" alt="">', 'media'); remember('user', '[أرسل صورة]'); await wait(300); await bot('ثواني نحلل الصورة… 🔍', 600) }
+    await wait(800);
+    showResult({ items: [{ name: 'رز', grams: 640, value_sar: 8, safe_until: new Date(Date.now() + 864e5).toISOString().replace(/T.*/, 'T14:00') }, { name: 'دجاج', grams: 210, value_sar: 8, safe_until: new Date(Date.now() + 3 * 864e5).toISOString() }], total_value_sar: 16, servings_left: 3, next_day_suggestion: 'كبسة باقية بالخضار' });
+  } else if (p === 'pots') {
+    if (!already) { me('<div class="pots">قدور العزيمة</div>', 'media'); remember('user', '[أرسل صورة القدور]'); await wait(300); await bot('ثواني نحلل الصورة… 🔍', 600) }
+    S.meal = { items: [{ name: 'رز', grams: 6000, value_sar: 72 }, { name: 'لحم', grams: 3000, value_sar: 210 }], total_value_sar: 282, servings_left: 30, charity_suggestion: true };
+    await bot('باقي عندكم كمية كبيرة: تقريبًا <b>6 كجم رز</b> و<b>3 كجم لحم</b> 🍲\nهل هذا الأكل <b>تقدّم على السفرة</b>، ولا باقي في القدور ما أحد أكل منه؟', 1300);
+    btns([['باقي في القدور', served, /^لا|باقي|بالقدور|في القدور|ما تقد|ما انقد|محد|ما أحد|ما احد|ما أكل منه|ما اكل منه|ما انلمس/], ['تقدّم على السفرة', homePlan, /^(نعم|ايه|إيه|اي|أي)(\s|$)|^تقد|انقد|قدمناه|قدّمناه|حطيناه على|أكلوا منه|اكلوا منه/]]);
+  } else {
+    if (!already) { me('<img src="s-chair.jpg" alt="">', 'media'); remember('user', '[أرسل صورة ما فيها أكل]'); await bot('ثواني نحلل الصورة… 🔍', 600) }
+    await bot('ما قدرنا نتعرف على أكل في الصورة 🤔\nصوّروا الصحن كامل من فوق وبإضاءة واضحة، وجربوا مرة ثانية.', 900);
+  }
+}
+
+/* ---------- المتابعة ---------- */
+const M = () => S.meal || { items: [{ name: 'رز', grams: 640, value_sar: 8 }, { name: 'دجاج', grams: 210, value_sar: 8 }], servings_left: 3, next_day_suggestion: 'كبسة باقية بالخضار' };
+async function fridge() {
+  if (S.meal && S.meal.meal_id && API.ok) api('/api/analyze', { action: 'fridge', meal_id: S.meal.meal_id }, 15000).catch(() => {});
+  await bot('ممتاز! 👏 سجّلنا إنه دخل الثلاجة، وبنذكّركم بكرة الصبح باللي عندكم.');
+  skip('صباح اليوم التالي', morning);
+}
+async function morning() {
+  const m = M(); const names = m.items.map(i => i.name).join(' و'); const sv = Math.max(1, Number(m.servings_left) || 1);
+  const rice = m.items.some(i => /رز|أرز/.test(i.name));
+  day('اليوم التالي · 11:00 ص');
+  await bot(`صباح الخير ☀️\nعندكم في الثلاجة <b>${esc(names)}</b> يكفي تقريبًا <b>${sv}</b>.\nاقتراح الغداء: <b>${esc(m.next_day_suggestion || 'طبق من البواقي مع سلطة')}</b> 🍲` + (rice ? '\nوبكذا ما تحتاجون تطبخون رز اليوم.' : ''));
+  btns([['تمام، بنسويها 👍', async () => { await bot('بالعافية مقدمًا 🌿'); skip('نهاية مدة الحفظ', closeQ) }], ['عندي سؤال', async () => { await bot(API.ai ? 'تفضّل، اكتب سؤالك أو أرسله بصوتك 🎙️' : 'اكتب سؤالك تحت 👇 (مثال: «كيف أسخّن الرز؟»)') }]]);
+}
+async function closeQ() {
+  const m = M(); const i0 = m.items.find(i => /رز|أرز/.test(i.name)) || m.items[0];
+  day('بعد يوم'); await bot(`وش صار على <b>${esc(i0.name)}</b>؟`);
+  btns([['أُكل ✅', async () => { await bot(`ممتاز! 🎉 أنقذتوا <b>${Math.round(i0.grams)} جم</b> ووفّرتوا <b>${SAR(i0.value_sar)} ريال</b>.`); weekly() }, /^(أُ?كل|اكل|انأكل|أكلناه|اكلناه|خلص|انتهى|كله|كامل)/],
+  ['نصفه', async () => { await bot('حلو 👌 أنقذتوا نصفه. المرة الجاية جربوه بطبخة الصبح بدري.'); weekly() }, /^(نص|نصه|بعضه|شوي|جزء)/],
+  ['رُمي 🗑️', async () => { await bot('ولا يهمكم 🙏 للتخلص الصحيح: افصلوا الأكل عن البلاستيك والكرتون، وحطوه في كيس محكم.\nوهذا بالضبط اللي بيساعدنا فيه «مقدار» 👇'); weekly() }, /رمي|رميناه|انرمى|زبال|خرب|فسد/]], true);
+}
+function weekly() {
+  skip('آخر الأسبوع', async () => {
+    day('آخر الأسبوع');
+    await bot('📊 <b>مقدار الأسبوع</b>\nالرز يزيد عندكم تقريبًا <b>كوب كل غداء</b>.\nالكمية المناسبة: <b>5 أكواب بدل 6</b> 🍚');
+    await bot('<img src="cups.jpg" alt="5 أكواب">رسالة جاهزة للطباخ (' + S.lang + '):\n' + COOK[S.lang], 1100);
+    btns([['أرسلها للطباخ ↪️', async () => { await bot('تم ✅ أرسلها لمن يطبخ عندكم.\nوإذا عندكم مناسبة اكتبوا «عزيمة» 🎉'); btns([['🎉 عندنا عزيمة', gath]]) }]]);
+  });
+}
+async function gath() {
+  await bot('الله يتمم 🎉 كم عدد الضيوف تقريبًا؟\n<span class="hint">اختاروا أو اكتبوا العدد</span>');
+  btns([['10 – 20', () => gq(10, 20)], ['20 – 30', () => gq(20, 30)], ['أكثر من 30', guestsMore], ['', (t, n) => n ? gq(n, n) : guestsMore(), /\d|[٠-٩]/]], true)
+}
+async function guestsMore() { await bot('حيّاهم الله 🤍 اكتبوا العدد التقريبي 👇'); btns([['', (t, n) => n ? gq(n, n) : gath(), /\d|[٠-٩]/]]) }
+const kg = x => (Math.round(x * 10) / 10).toString();
+async function gq(lo, hi) {
+  hi = hi || lo; const who = lo === hi ? `<b>${lo} ضيف</b>` : `<b>${lo} إلى ${hi} ضيف</b>`;
+  const r = lo === hi ? kg(lo * .24) : `${kg(lo * .24)} – ${kg(hi * .24)}`, m = lo === hi ? kg(lo * .12) : `${kg(lo * .12)} – ${kg(hi * .12)}`;
+  await bot(`أبشروا 🤍 المقترح لـ${who}:\n🍚 رز (مطبوخ): تقريبًا <b>${r} كجم</b>\n🍖 لحم: تقريبًا <b>${m} كجم</b>\nمع هامش يحفظ الكرم والضيافة.\n\n💡 قدّموا على دفعات، وخلّوا الباقي في القدور مغطى، عشان لو زاد يصلح للتبرع.`);
+  skip('بعد العزيمة', async () => { day('بعد العزيمة · 9:10 م'); await bot('عساها عامرة 🌿 لو بقي أكل، صوّروا القدور وأرسلوها 📷'); btns([['📷 أرسل صورة', openSheet]]) });
+}
+async function homePlan() { await bot('تمام 🌿 الأكل اللي تقدّم على السفرة ما يصلح للتبرع، لسلامة الغذاء.\nهذي خطة حفظه في البيت: وزّعوه في علب صغيرة ودخلوه الثلاجة خلال ساعتين، والرز يُستخدم خلال يوم، واللحم خلال 3 أيام.') }
+/* ---------- أقرب جمعية حفظ نعمة ---------- */
+// القائمة قابلة للتعديل: أضيفوا أي جمعية برقمها وإحداثيات مدينتها
+const CHARITIES = [
+  { name: 'طعامي لحفظ النعمة', city: 'بريدة', lat: 26.326, lng: 43.975, phones: ['920005538'] },
+  { name: 'خيرات لحفظ النعمة', city: 'الرياض', lat: 24.7136, lng: 46.6753, phones: ['0537777266'] },
+  { name: 'صون لحفظ النعمة', city: 'الأفلاج', lat: 22.28, lng: 46.73, phones: ['0550051712'] },
+  { name: 'إطعام (بنك الطعام السعودي)', city: 'الدمام', lat: 26.4207, lng: 50.0888, phones: ['0535412227'] },
+  { name: 'حفظ النعمة «استدامة»', city: 'جدة', lat: 21.4858, lng: 39.1925, phones: ['0555310971', '920003063'] },
+  { name: 'أرزاق لحفظ النعمة', city: 'الطائف', lat: 21.2703, lng: 40.4158, phones: ['0556006684', '0127500059'] },
+];
+const CITIES = [
+  ['بريدة', 26.326, 43.975, /بريد|القصيم|قصيم/], ['عنيزة', 26.084, 43.993, /عنيز/], ['الرس', 25.869, 43.497, /الرس/],
+  ['الرياض', 24.7136, 46.6753, /رياض|الخرج|الدرعية/], ['الأفلاج', 22.28, 46.73, /افلاج|أفلاج|ليلى|السليل|وادي الدواسر/],
+  ['الدمام', 26.4207, 50.0888, /دمام|الخبر|ظهران|الشرقي|القطيف|الأحساء|الاحساء|الجبيل/],
+  ['جدة', 21.4858, 39.1925, /جدة|جده|مكة|مكه|رابغ/], ['الطائف', 21.2703, 40.4158, /طائف|الطايف/],
+  ['المدينة', 24.5247, 39.5692, /المدينة|المدينه|ينبع/], ['حائل', 27.5114, 41.7208, /حائل|حايل/],
+  ['أبها', 18.2164, 42.5053, /أبها|ابها|خميس|عسير/], ['تبوك', 28.3835, 36.5662, /تبوك/],
+];
+let HERE = null, NEAR = [], NI = 0;
+const km = (a, b, c, d) => { const r = x => x * Math.PI / 180, R = 6371; const h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)) };
+function qtyTxt() { const m = S.meal; if (!m || !m.items || !m.items.length) return ''; return m.items.map(i => (i.grams >= 1000 ? (Math.round(i.grams / 100) / 10) + ' كجم ' : Math.round(i.grams) + ' جم ') + i.name).join(' + ') }
+async function served() {
+  await bot('ما شاء الله 👏 هذا الأكل يصلح للتبرع ويوصل لمستحقيه.', 800);
+  btns([['📍 أقرب جمعية لي', findCharity, /جمعي|تبرع|أتبرع|اتبرع|ايه|نعم/], ['🧊 خطة حفظ في البيت', homePlan, /حفظ|البيت|الثلاج/]]);
+}
+async function findCharity() {
+  await bot('شاركونا موقعكم عشان نطلع لكم <b>أقرب جمعية حفظ نعمة</b> وطريقة التواصل معها 📍\n<span class="hint">أو اكتبوا اسم مدينتكم</span>');
+  btns([['📍 مشاركة الموقع', shareLoc], ['🏙️ أكتب مدينتي', askCity], ['', t => cityTyped(t), new RegExp(CITIES.map(c => c[3].source).join('|'))]]);
+}
+async function askCity() { await bot('اكتبوا اسم مدينتكم 👇'); btns([['', t => cityTyped(t), /.+/]]) }
+function cityTyped(t) { const c = CITIES.find(c => c[3].test(t)); if (!c) return bot('للحين الجمعيات المسجلة عندنا في: بريدة، الرياض، الأفلاج، الدمام، جدة، الطائف 🙏\nاكتبوا أقرب مدينة لكم منها.').then(() => btns([['', t => cityTyped(t), /.+/]])); HERE = { lat: c[1], lng: c[2], city: c[0] }; return nearest() }
+function shareLoc() {
+  if (!navigator.geolocation) return askCity();
+  const t = typingOn();
+  navigator.geolocation.getCurrentPosition(p => {
+    typingOff(t); HERE = { lat: p.coords.latitude, lng: p.coords.longitude, city: '' };
+    const c = CITIES.map(c => [c, km(HERE.lat, HERE.lng, c[1], c[2])]).sort((a, b) => a[1] - b[1])[0]; if (c && c[1] < 60) HERE.city = c[0][0];
+    me(`<div class="map"></div><span class="loc">📍 الموقع الحالي${HERE.city ? ' · ' + HERE.city : ''}</span>`); remember('user', '[شارك الموقع' + (HERE.city ? ': ' + HERE.city : '') + ']');
+    nearest();
+  }, () => { typingOff(t); bot('ما قدرنا نوصل لموقعكم 🙏 (يمكن الإذن مقفل)\nاكتبوا اسم مدينتكم 👇').then(() => btns([['', t => cityTyped(t), /.+/]])) }, { timeout: 12000, maximumAge: 600000 });
+}
+async function nearest() { NEAR = CHARITIES.map(c => ({ ...c, d: km(HERE.lat, HERE.lng, c.lat, c.lng) })).sort((a, b) => a.d - b.d); NI = 0; showCharity() }
+function linkBtns(list) {
+  const w = el(`<div class="btns"></div>`); list.forEach(([label, href]) => { const a = document.createElement('a'); a.className = 'lb'; a.textContent = label; a.href = href; a.target = '_blank'; a.rel = 'noopener'; w.appendChild(a) });
+  chat.appendChild(w); const rb = [...chat.querySelectorAll('.row.them .b')].pop(); if (rb) { w.style.width = Math.max(rb.offsetWidth, chat.clientWidth * .6) + 'px'; rb.style.borderBottomLeftRadius = rb.style.borderBottomRightRadius = '0' } scroll();
+}
+async function showCharity() {
+  const c = NEAR[NI]; if (!c) return bot('هذي كل الجمعيات المسجلة عندنا للحين 🙏');
+  const d = Math.round(c.d), dist = d < 3 ? 'قريبة منكم' : `تقريبًا ${d} كم`;
+  await bot(`${NI ? 'هذي جمعية ثانية' : 'أقرب جمعية لكم'} 🤝\n<b>جمعية ${esc(c.name)}</b>\n📍 ${esc(c.city)} · ${dist}\n📞 <span dir="ltr">${c.phones.join(' · ')}</span>\n\n${qtyTxt() ? '🍲 الكمية: ' + esc(qtyTxt()) + '\n' : ''}💡 تواصلوا معهم الحين، والأكل يبقى مغطى لين يوصل المندوب.`, 1100);
+  const mob = c.phones.find(p => /^05\d{8}$/.test(p));
+  const msgTxt = `السلام عليكم ورحمة الله، عندنا فائض أكل من مناسبة ما تقدّم على السفرة وباقي في القدور${qtyTxt() ? ': ' + qtyTxt() : ''}.${HERE && HERE.city ? ' موقعنا: ' + HERE.city + '.' : ''} هل تقدرون تستلمونه؟ جزاكم الله خير. (وصلنا لكم عن طريق سُفرة)`;
+  const L = [['📞 اتصال', 'tel:' + c.phones[0]]];
+  if (mob) L.push(['💬 مراسلة واتساب', 'https://wa.me/966' + mob.slice(1) + '?text=' + encodeURIComponent(msgTxt)]);
+  L.push(['🗺️ على الخريطة', 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('جمعية ' + c.name + ' ' + c.city)]);
+  linkBtns(L);
+  await bot('وإذا تواصلتوا معهم علّمونا 👇', 1400);
+  btns([['✅ تواصلنا واتفقنا', donated, /تواصل|اتفق|تم|خلاص|كلمناهم|كلّمناهم/], ['🔄 جمعية ثانية', () => { NI++; showCharity() }, /ثاني|غير|ما رد|مارد|ما ردوا/]]);
+}
+async function donated() {
+  await bot('جزاكم الله خير 🤍 أكلكم بيوصل لأسر محتاجة، وسجّلنا الكمية في أثر أسرتكم هذا الشهر.\n<span class="err">(في المرحلة الجاية يوصل الطلب لنظام الجمعية مباشرة عبر API بدون اتصال)</span>');
+  skip('آخر الشهر', monthly);
+}
+async function loc() { return findCharity() }
+async function monthly() {
+  day('نهاية الشهر'); await bot('📊 <b>ملخص شهركم مع سُفرة</b>\n💰 وفّرتوا: <b>140 ريال</b>\n🍽️ أنقذتوا: <b>9 كجم</b> أكل\n🤝 تبرعتوا: <b>9 كجم</b> لجمعية\n🏆 أفضل أسبوع: الثاني\n\nكل لقمة تفرق 🌿');
+  btns([['📲 أضف إنجازنا في لتدوم', async () => { await bot('هذي الخطوة الجاية في سُفرة 🤝 نقترح على لتدوم إن ملخص شهركم ينضاف تلقائيًا لحسابكم في تطبيق لتدوم، عشان يجتمع وعيكم وأثركم في مكان واحد.\n<span class="err">(ميزة مقترحة، ما هي مفعّلة في هذي النسخة)</span>'); btns([['🔁 ابدأ من جديد', start]]) }], ['🔁 ابدأ من جديد', start]]);
+}
+
+/* ---------- الذكاء الاصطناعي ---------- */
+function profile() { const q = PEND ? [...chat.querySelectorAll('.row.them .b')].pop() : null; return { size: S.size, lang: S.lang, meal: mealSummary(S.meal), city: (HERE && HERE.city) || '', charity: NEAR[NI] ? 'جمعية ' + NEAR[NI].name + ' في ' + NEAR[NI].city : '', pending: q ? strip(q.innerHTML).slice(0, 200) : '' } }
+function aiBtns(list) {
+  list = (list || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 3); if (!list.length) return;
+  btns(list.map(b => [b, () => (/صور|📷|كاميرا/.test(b) && !/\?|؟/.test(b)) ? openSheet() : text(b, true)]));
+}
+async function askAI(extra, hist) {
+  const t = typingOn();
+  try { const j = await api('/api/chat', { ...extra, history: hist, profile: profile() }, 45000); typingOff(t); them(fmt(j.reply || '…')); aiBtns(j.buttons); return j }
+  catch (e) { typingOff(t); throw e }
+}
+async function text(t, already) {
+  t = String(t).trim(); if (!t) return;
+  const hist = already ? H.slice(0, -1) : H.slice();
+  if (!already) { me(esc(t)); remember('user', t) }
+  if (PEND) {
+    const n = num(t) ?? Object.entries(WORDN).sort((a, b) => b[0].length - a[0].length).find(([w]) => new RegExp('(^|\\s)' + w + '[ةه]?(\\s|$)').test(t))?.[1] ?? null;
+    for (const o of PEND.opts) if (o.re.test(t)) { const p = PEND; p.close(); return o.fn(t, n) }
+  }
+  { const c = /(أنا|انا|احنا|إحنا|ساكن|ساكنين|نسكن|من)\s+(في|ب|بـ)?\s*/.test(t) && CITIES.find(c => c[3].test(t)); if (c) HERE = { lat: c[1], lng: c[2], city: c[0] } }
+  if (/(أقرب|اقرب|وين|ابي|أبي|ابغى|أبغى).{0,12}جمعي|أبي أتبرع|ابي اتبرع|ابغى اتبرع|أبغى أتبرع/.test(t)) return findCharity();
+  if (/عزيم|ضيوف|مناسبة/.test(t) && t.length < 40) { const n = num(t); return n ? gq(n, n) : gath() }
+  if (API.ai) { try { await askAI({ text: t }, hist); return } catch (e) {} }
+  legacy(t);
+}
+function legacy(t) {
+  if (/سخن|تسخين/.test(t)) return bot('سخّنوا الرز مع رشة موية وغطّوه، لين يطلع بخاره ويسخن كله ♨️ ولا تسخنونه أكثر من مرة.');
+  if (/مرحب|هلا|السلام/.test(t)) return bot('هلا والله 🌷 صوّروا البواقي بعد الأكل وأرسلوها، أو اكتبوا «عزيمة».');
+  return bot('صوّروا السفرة بعد الأكل وأرسلوها 📷 والباقي علينا 🌿\n(أو اكتبوا «عزيمة»)');
+}
+
+/* ---------- الرسائل الصوتية ---------- */
+let rec = null;
+const fmtDur = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+async function startRec() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) return bot('المتصفح هذا ما يدعم تسجيل الصوت 🙏 اكتبوا رسالتكم.');
+  let stream; try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }) } catch (e) { return bot('ما قدرنا نوصل للمايكروفون 🎙️ اسمحوا بالإذن من المتصفح، أو اكتبوا رسالتكم.') }
+  const mt = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'].find(m => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || '';
+  const mr = new MediaRecorder(stream, mt ? { mimeType: mt } : undefined); const chunks = [];
+  mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data) };
+  const levels = []; let src = null, an = null, buf = null;
+  try { const a = ac(); src = a.createMediaStreamSource(stream); an = a.createAnalyser(); an.fftSize = 512; src.connect(an); buf = new Uint8Array(an.fftSize) } catch (e) {}
+  const t0 = Date.now();
+  const iv = setInterval(() => {
+    if (an) { an.getByteTimeDomainData(buf); let s = 0; for (const v of buf) { const x = (v - 128) / 128; s += x * x } levels.push(Math.sqrt(s / buf.length)) } else levels.push(Math.random() * .3);
+    const sec = (Date.now() - t0) / 1000; recT.textContent = fmtDur(sec); if (sec >= 60) stopRec(true);
+  }, 100);
+  rec = { mr, chunks, stream, iv, levels, t0, src, mime: mr.mimeType || mt || 'audio/webm' };
+  mr.start(250); recT.textContent = '0:00'; footer.classList.add('recording'); sendB.classList.add('on'); ding(520, .05);
+}
+function stopRec(send) {
+  if (!rec) return; const r = rec; rec = null; clearInterval(r.iv);
+  const dur = (Date.now() - r.t0) / 1000;
+  footer.classList.remove('recording'); sendB.classList.toggle('on', !!msg.value.trim());
+  r.mr.onstop = () => { r.stream.getTracks().forEach(t => t.stop()); try { r.src && r.src.disconnect() } catch (e) {} if (send && dur >= .8) voiceOut(new Blob(r.chunks, { type: r.mime }), dur, r.levels) };
+  try { r.mr.stop() } catch (e) {}
+}
+function bars(levels, n = 34) {
+  const out = []; const L = levels.length || 1;
+  for (let i = 0; i < n; i++) { const a = Math.floor(i * L / n), b = Math.max(a + 1, Math.floor((i + 1) * L / n)); let m = 0; for (let k = a; k < b; k++) m = Math.max(m, levels[k] || 0); out.push(m) }
+  const mx = Math.max(...out, .02); return out.map(v => Math.max(3, Math.round(4 + 22 * Math.min(1, v / mx))));
+}
+const PLAY = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const PAUSE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
+async function voiceOut(blob, dur, levels) {
+  const url = URL.createObjectURL(blob); const hs = bars(levels);
+  const node = me(`<div class="voice"><button class="pl">${PLAY}</button><div class="wv">${hs.map(h => `<i style="height:${h}px"></i>`).join('')}</div><span class="du">${fmtDur(dur)}</span><div class="vav"><svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="8" r="4.2"/><path d="M4 20c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5z"/></svg><span class="mic"><svg width="15" height="15" viewBox="0 0 24 24" fill="#00A884"><path d="M12 15a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v7a3 3 0 0 0 3 3zm5.3-3a5.3 5.3 0 0 1-10.6 0H5a7 7 0 0 0 6 6.9V22h2v-3.1A7 7 0 0 0 19 12z"/></svg></span></div></div>`, 'vb');
+  const bub = node.querySelector('.b'), pl = node.querySelector('.pl'), is = [...node.querySelectorAll('.wv i')], du = node.querySelector('.du');
+  const au = new Audio(url);
+  pl.onclick = () => { if (au.paused) { au.play(); pl.innerHTML = PAUSE } else { au.pause(); pl.innerHTML = PLAY } };
+  au.ontimeupdate = () => { const p = au.currentTime / (isFinite(au.duration) && au.duration ? au.duration : dur); is.forEach((x, k) => x.classList.toggle('p', k / is.length < p)); du.textContent = fmtDur(au.currentTime) };
+  au.onended = () => { pl.innerHTML = PLAY; is.forEach(x => x.classList.remove('p')); du.textContent = fmtDur(dur) };
+  const hist = H.slice(); remember('user', '[رسالة صوتية]');
+  if (!API.ai) return bot('وصلنا صوتك 🎙️ في النسخة المنشورة يسمعه البوت ويرد عليه.\nوتقدرون الحين ترسلون صورة السفرة 📷');
+  let payload;
+  try { const wav = await toWav(blob); payload = { mime: 'audio/wav', data: await blobToB64(wav) } }
+  catch (e) { payload = { mime: (blob.type || 'audio/webm').split(';')[0], data: await blobToB64(blob) } }
+  try {
+    const j = await askAI({ audio: payload }, hist);
+    if (j && j.transcript) { bub.querySelector('.t').insertAdjacentHTML('beforebegin', `<div class="tr"><small>النص</small>${esc(j.transcript)}</div>`); for (let k = H.length - 1; k >= 0; k--) if (H[k].text === '[رسالة صوتية]') { H[k] = { role: 'user', text: '[رسالة صوتية] ' + String(j.transcript).slice(0, 600) }; break } }
+  } catch (e) { bot('ما وضح الصوت عندنا 🙏 جرّبوا مرة ثانية أو اكتبوا رسالتكم.') }
+}
+async function toWav(blob) {
+  const ab = await blob.arrayBuffer(); const a = ac();
+  const dec = await new Promise((res, rej) => { const p = a.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej) });
+  const sr = 16000; const off = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, Math.max(1, Math.ceil(dec.duration * sr)), sr);
+  const s = off.createBufferSource(); s.buffer = dec; s.connect(off.destination); s.start();
+  const out = await off.startRendering(); const d = out.getChannelData(0);
+  const b = new ArrayBuffer(44 + d.length * 2), v = new DataView(b); const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)) };
+  w(0, 'RIFF'); v.setUint32(4, 36 + d.length * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, d.length * 2, true);
+  for (let i = 0, o = 44; i < d.length; i++, o += 2) { const x = Math.max(-1, Math.min(1, d[i])); v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7FFF, true) }
+  return new Blob([b], { type: 'audio/wav' });
+}
+
+/* ---------- الأحداث ---------- */
+function sendText() { const t = msg.value; msg.value = ''; sendB.classList.remove('on'); text(t) }
+msg.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); sendText() } });
+msg.addEventListener('input', () => { if (!rec) sendB.classList.toggle('on', msg.value.trim() !== '') });
+sendB.onclick = () => { ac(); if (rec) return stopRec(true); if (msg.value.trim()) return sendText(); startRec() };
+document.getElementById('recX').onclick = () => stopRec(false);
+document.getElementById('att').onclick = openSheet;
+document.getElementById('cam').onclick = () => document.getElementById('fCam').click();
+document.getElementById('gal').onclick = () => document.getElementById('fGal').click();
+document.getElementById('cam2').onclick = () => document.getElementById('fCam').click();
+document.getElementById('fGal').onchange = e => pickFile(e.target);
+document.getElementById('fCam').onchange = e => pickFile(e.target);
+document.getElementById('emo').onclick = () => msg.focus();
+shade.onclick = closeSheet;
+document.getElementById('menu').onclick = e => { e.stopPropagation(); pop.classList.toggle('on') };
+document.addEventListener('click', () => pop.classList.remove('on'));
+document.getElementById('newChat').onclick = () => { pop.classList.remove('on'); start() };
+buildSamples();
+start();

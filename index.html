@@ -71,7 +71,7 @@ footer{display:flex;align-items:flex-end;gap:6px;padding:6px 6px;padding-bottom:
 .send .s1,.send.on .s2{display:none}.send.on .s1{display:block}
 .shade{position:absolute;inset:0;background:rgba(11,20,26,.35);opacity:0;pointer-events:none;transition:.2s;z-index:4}
 .shade.on{opacity:1;pointer-events:auto}
-.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;padding:10px 16px 20px;padding-bottom:max(20px,env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .25s cubic-bezier(.2,.8,.2,1);z-index:5}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:88%;overflow-y:auto;background:#fff;border-radius:18px 18px 0 0;padding:10px 16px 20px;padding-bottom:max(20px,env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .25s cubic-bezier(.2,.8,.2,1);z-index:5}
 .sheet.on{transform:none}
 .sheet .grab{width:36px;height:5px;border-radius:3px;background:#D1D7DB;margin:0 auto 12px}
 .sheet h4{margin:0 0 12px;font-size:16px;font-weight:600}
@@ -79,6 +79,38 @@ footer{display:flex;align-items:flex-end;gap:6px;padding:6px 6px;padding-bottom:
 .sheet .g button{border:0;background:none;padding:0;font:inherit;font-size:13px;color:#3B4A54;cursor:pointer;text-align:center}
 .sheet .g img,.sheet .g .ph{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;margin-bottom:6px;display:block}
 .sheet .g .ph{display:flex;align-items:center;justify-content:center;font-size:28px}
+
+.t .tk{color:#8696A0;transition:color .3s}.t .tk.read{color:#53BDEB}
+.rec{display:none;flex:1;align-items:center;gap:10px;background:#fff;border-radius:24px;padding:4px 12px;min-height:48px;box-shadow:0 1px .5px rgba(11,20,26,.13)}
+footer.recording .inp{display:none}footer.recording .rec{display:flex}
+.rec button{background:none;border:0;padding:0;cursor:pointer;display:flex}
+.rdot{width:10px;height:10px;border-radius:50%;background:#EA0038;animation:rb 1s infinite}
+#recT{font-size:16px;color:#111B21;direction:ltr;min-width:38px}
+.rhint{flex:1;text-align:left;color:#8696A0;font-size:14px}
+@keyframes rb{50%{opacity:.2}}
+.voice{display:flex;align-items:center;gap:6px;width:250px;max-width:100%;direction:ltr;padding:2px 0 16px;position:relative}
+.voice .pl{width:30px;height:30px;border:0;background:none;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#54656F}
+.voice .wv{flex:1;display:flex;align-items:center;gap:2px;height:30px;position:relative}
+.voice .wv i{flex:1;border-radius:2px;background:#A5B3AA;min-height:3px}
+.them .voice .wv i{background:#B6BEC2}
+.voice .wv i.p{background:#2F8C6E}
+.voice .du{position:absolute;left:38px;bottom:0;font-size:11px;color:#667781}
+.voice .vav{width:40px;height:40px;border-radius:50%;background:#DFE5E7;position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.voice .vav .mic{position:absolute;bottom:-2px;right:-3px;width:17px;height:17px;display:flex;align-items:center;justify-content:center}
+.b.vb{padding-bottom:4px}
+.tr{direction:rtl;border-top:1px solid rgba(0,0,0,.07);margin-top:2px;padding-top:5px;font-size:13.5px;color:#3B4A54;line-height:1.5}
+.tr small{display:block;color:#667781;font-size:11.5px}
+.acts{display:flex;gap:26px;justify-content:center;margin:2px 0 16px}
+.acts button{background:none;border:0;padding:0;font:inherit;font-size:13px;color:#3B4A54;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px}
+.acts .ai{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.sheet h4{font-size:14px;color:#667781;font-weight:500}
+.pop{position:absolute;top:52px;left:8px;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(11,20,26,.2);z-index:6;display:none;padding:6px 0}
+.pop.on{display:block}
+.pop button{background:none;border:0;font:inherit;font-size:15px;padding:10px 22px;cursor:pointer;color:#111B21}
+.b .err{color:#667781;font-size:13px}
+.b .hint{color:#667781;font-size:13px}
+.btns a.lb{display:block;text-align:center;text-decoration:none;border-top:1px solid #E9EDEF;padding:11px 8px;font-size:15px;color:var(--link);font-weight:500}
+.btns a.lb:active{background:#F5F6F6}
 @keyframes pop{from{transform:scale(.97);opacity:0}to{transform:none;opacity:1}}
 @keyframes bl{0%,100%{opacity:.35;transform:translateY(0)}50%{opacity:1;transform:translateY(-2px)}}
 </style>
@@ -91,16 +123,21 @@ footer{display:flex;align-items:flex-end;gap:6px;padding:6px 6px;padding-bottom:
   <div class="ic">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M15 8.5V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-1.5l5 3.5V5z"/></svg>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1z"/></svg>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+    <svg id="menu" style="cursor:pointer" width="22" height="22" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
   </div>
 </header>
 <div class="chat" id="chat"></div>
 <footer>
   <div class="inp">
-    <button title="إيموجي"><svg width="24" height="24" viewBox="0 0 24 24" fill="#8696A0"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18.2a8.2 8.2 0 1 1 0-16.4 8.2 8.2 0 0 1 0 16.4zM8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM12 17.5c2.3 0 4.2-1.5 4.9-3.5H7.1c.7 2 2.6 3.5 4.9 3.5z"/></svg></button>
+    <button id="emo" title="إيموجي"><svg width="24" height="24" viewBox="0 0 24 24" fill="#8696A0"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18.2a8.2 8.2 0 1 1 0-16.4 8.2 8.2 0 0 1 0 16.4zM8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM12 17.5c2.3 0 4.2-1.5 4.9-3.5H7.1c.7 2 2.6 3.5 4.9 3.5z"/></svg></button>
     <input id="msg" placeholder="مراسلة" autocomplete="off" enterkeyhint="send">
     <button id="att" title="إرفاق"><svg width="22" height="22" viewBox="0 0 24 24" fill="#8696A0" style="transform:rotate(-45deg)"><path d="M16.5 6v11.5a4 4 0 0 1-8 0V5a2.5 2.5 0 0 1 5 0v10.5a1 1 0 0 1-2 0V6H10v9.5a2.5 2.5 0 0 0 5 0V5a4 4 0 0 0-8 0v12.5a5.5 5.5 0 0 0 11 0V6z"/></svg></button>
     <button id="cam" title="كاميرا"><svg width="22" height="22" viewBox="0 0 24 24" fill="#8696A0"><path d="M12 9a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8-3h-3.2L15 4H9L7.2 6H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2zm-8 13a6 6 0 1 1 0-12 6 6 0 0 1 0 12z"/></svg></button>
+  </div>
+  <div class="rec" id="rec">
+    <button id="recX" title="حذف"><svg width="22" height="22" viewBox="0 0 24 24" fill="#8696A0"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zM19 4h-3.5l-1-1h-5l-1 1H5v2h14z"/></svg></button>
+    <span class="rdot"></span><span id="recT">0:00</span>
+    <span class="rhint">جاري التسجيل…</span>
   </div>
   <button class="send" id="send" aria-label="إرسال">
     <svg class="s1" width="22" height="22" viewBox="0 0 24 24" fill="#fff" style="transform:scaleX(-1)"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
@@ -110,90 +147,17 @@ footer{display:flex;align-items:flex-end;gap:6px;padding:6px 6px;padding-bottom:
 <div class="shade" id="shade"></div>
 <div class="sheet" id="sheet">
   <div class="grab"></div>
-  <h4>أرسل صورة</h4>
-  <div class="g">
-    <button data-p="plate"><img src="plate.jpg" alt="">بواقي الغداء</button>
-    <button data-p="pots"><div class="ph pots" style="width:100%;height:auto;margin:0 0 6px;padding:0"></div>قدور العزيمة</button>
-    <button data-p="none"><div class="ph" style="background:#E9EDEF">🛋️</div>صورة مو أكل</button>
+  <div class="acts">
+    <button id="gal"><span class="ai" style="background:#7F66FF"><svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM5 18l4-5 3 3.5 3-4 4 5.5z"/></svg></span>المعرض</button>
+    <button id="cam2"><span class="ai" style="background:#FF2E74"><svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M12 9a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8-3h-3.2L15 4H9L7.2 6H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2z"/></svg></span>الكاميرا</button>
   </div>
+  <h4>أو جرّب بصورة جاهزة</h4>
+  <div class="g" id="samples"></div>
 </div>
+<div class="pop" id="pop"><button id="newChat">محادثة جديدة</button></div>
+<input type="file" id="fGal" accept="image/*" hidden>
+<input type="file" id="fCam" accept="image/*" capture="environment" hidden>
 </div>
-<script>
-const chat=document.getElementById('chat'),st=document.getElementById('st');
-let S={size:'',lang:'عربي',step:'start'};
-let actx;function ding(f=880,d=.08){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=f;o.type='sine';g.gain.setValueAtTime(.06,actx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+d*2);o.connect(g);g.connect(actx.destination);o.start();o.stop(actx.currentTime+d*2)}catch(e){}}
-const now=()=>{const d=new Date();let h=d.getHours(),m=String(d.getMinutes()).padStart(2,'0');const p=h<12?'ص':'م';h=h%12||12;return h+':'+m+' '+p};
-const scroll=()=>setTimeout(()=>chat.scrollTo({top:chat.scrollHeight,behavior:'smooth'}),30);
-function el(h){const d=document.createElement('div');d.innerHTML=h;return d.firstElementChild}
-function day(t){last='';chat.appendChild(el(`<div class="day">${t}</div>`));scroll()}
-function note(t){chat.appendChild(el(`<div class="note">${t}</div>`));scroll()}
-let last='';function me(html,media){const f=last!=='me'?' first':'';last='me';chat.appendChild(el(`<div class="row me${f}"><div class="b${media?' media':''}">${html}<span class="t">${now()} <svg width="16" height="11" viewBox="0 0 16 11" fill="#53BDEB"><path d="M11.1.7 5.4 7.3 3 5 2 6l3.5 3.3 6.7-7.6zM15 .7 9.3 7.3l-.9-.8-1 1 1.9 1.8L16 1.6z"/></svg></span></div></div>`));ding(660);scroll()}
-function them(html){const f=last!=='them'?' first':'';last='them';chat.appendChild(el(`<div class="row them${f}"><div class="b">${html}<span class="t">${now()}</span></div></div>`));ding(980);scroll()}
-function btns(list,inline){const w=el(`<div class="btns${inline?' inline':''}" style="--n:${list.length}"></div>`);list.forEach(([label,fn])=>{const b=document.createElement('button');b.textContent=label;b.onclick=()=>{[...w.children].forEach(x=>x.disabled=true);me(label);fn()};w.appendChild(b)});const pb=chat.querySelector('.row.them:last-of-type .b');chat.appendChild(w);const rb=[...chat.querySelectorAll('.row.them .b')].pop();if(rb){w.style.width=Math.max(rb.offsetWidth,chat.clientWidth*.6)+'px';rb.style.borderBottomLeftRadius=rb.style.borderBottomRightRadius='0'}scroll()}
-function skip(label,fn){const b=el(`<button class="skip">⏩ ${label}</button>`);last='';b.onclick=()=>{b.remove();fn()};chat.appendChild(b);scroll()}
-const wait=ms=>new Promise(r=>setTimeout(r,ms));
-async function bot(html,ms=900){st.textContent='يكتب…';const t=el(`<div class="row them${last!=='them'?' first':''}"><div class="b typing"><i></i><i></i><i></i></div></div>`);chat.appendChild(t);scroll();await wait(ms);t.remove();st.textContent='حساب أعمال';them(html)}
-
-const COOK={'عربي':'اطبخي اليوم <b>5 أكواب رز</b> بدل 6.','English':'Cook <b>5 cups of rice</b> today, not 6.','Tagalog':'Magluto ng <b>5 tasang kanin</b> ngayon, hindi 6.','اردو':'آج <b>5 کپ چاول</b> پکائیں، 6 نہیں۔'};
-
-async function start(){
-  day('اليوم');
-  note('🔒 نسخة تجريبية لتدفق بوت سُفرة على الواتساب. جرّب الأزرار، واضغط 📷 لإرسال صورة.');
-  await bot('يا هلا ومرحبا بك في <b>سُفرة</b> 🌷\nنساعدك تحفظ نعمة بيتك وتوفّر، بصورة لسفرتكم بعد الأكل.\n\nعشان نضبط كميات الطبخ بدقة، <b>كم عدد أفراد البيت؟</b>',700);
-  btns([['1 – 3',()=>size('1-3')],['4 – 6',()=>size('4-6')],['7 أو أكثر',()=>size('7+')]],true);
-}
-async function size(s){S.size=s;await bot('تم 👌 وش لغة الشخص اللي يطبخ عندكم غالبًا؟');
-  btns([['عربي',()=>lang('عربي')],['English',()=>lang('English')],['Tagalog',()=>lang('Tagalog')],['اردو',()=>lang('اردو')]],true)}
-async function lang(l){S.lang=l;S.step='photo';await bot('ممتاز، جاهزين ✅\nبعد الغداء صوّروا <b>البواقي</b> وأرسلوها هنا 📷\n<span style="color:#667781;font-size:13px">(اضغط 📷 تحت، أو اكتبوا «عزيمة» لو عندكم مناسبة)</span>')}
-
-async function photo(p){
-  closeSheet();
-  if(p==='plate'){me('<img src="plate.jpg" alt="">',1);await wait(300);await bot('ثواني نحلل الصورة… 🔍',600);
-    await bot('بالعافية عليكم 🍽️\n<b>رصدنا في السفرة:</b>\n• رز: حوالي <b>640 جم</b> (7 ريال)\n• دجاج: حوالي <b>210 جم</b> (9 ريال)\n\n💰 إجمالي القيمة: <b>16 ريال</b>\n👥 تكفي تقريبًا: <b>3 أشخاص</b>\n⏰ الأفضل تستخدمونه قبل: <b>بكرة 2:00 م</b>\n\n💡 احفظوه في علب صغيرة ومسطحة عشان يبرد أسرع.',1400);
-    btns([['دخل الثلاجة ✅',fridge]]);}
-  else if(p==='pots'){me('<div class="pots">قدور العزيمة</div>',1);await wait(300);await bot('ثواني نحلل الصورة… 🔍',600);
-    await bot('باقي عندكم كمية كبيرة: تقريبًا <b>6 كجم رز</b> و<b>3 كجم لحم</b> 🍲\nهل هذا الأكل <b>انقدّم للسفرة</b>؟',1300);
-    btns([['لا، باقي في القدور',served],['نعم، انقدّم',async()=>{await bot('تمام 🌿 الأكل اللي انقدّم ما يصلح للتبرع.\nهذي خطة حفظه في البيت: وزّعوه في علب صغيرة ودخلوه الثلاجة خلال ساعتين، واستخدموه خلال 3 أيام.')}]]);}
-  else{me('<div class="pots" style="background:#E9EDEF;color:#54656F;align-items:center;font-size:40px">🛋️</div>',1);await bot('ما قدرنا نتعرف على أكل في الصورة 🤔\nصوّروا الصحن كامل من فوق وبإضاءة واضحة، وجربوا مرة ثانية.',900)}
-}
-async function fridge(){await bot('ممتاز! 👏 بنذكّركم بكرة الصبح باللي عندكم.');skip('صباح اليوم التالي',morning)}
-async function morning(){day('اليوم التالي · 11:00 ص');await bot('صباح الخير ☀️\nعندكم في الثلاجة <b>رز ودجاج يكفي 3</b>.\nاقتراح الغداء: <b>كبسة باقية بالخضار</b> 🍲\nوبكذا ما تحتاجون تطبخون رز اليوم.');
-  btns([['تمام، بنسويها 👍',async()=>{await bot('بالعافية مقدمًا 🌿');skip('نهاية مدة الحفظ',closeQ)}],['عندي سؤال',async()=>{await bot('اكتب سؤالك تحت 👇 (مثال: «كيف أسخّن الرز؟»)')}]]);}
-async function closeQ(){day('بعد يوم');await bot('وش صار على <b>الرز</b>؟');
-  btns([['أُكل ✅',async()=>{await bot('ممتاز! 🎉 أنقذتوا <b>640 جم</b> ووفّرتوا <b>7 ريال</b>.');weekly()}],['نصفه',async()=>{await bot('حلو 👌 أنقذتوا نصفه. المرة الجاية جربوه بطبخة الصبح بدري.');weekly()}],['رُمي 🗑️',async()=>{await bot('ولا يهمكم 🙏 للتخلص الصحيح: افصلوا الأكل عن البلاستيك والكرتون، وحطوه في كيس محكم.\nوهذا بالضبط اللي بيساعدنا فيه «مقدار» 👇');weekly()}]],true)}
-function weekly(){skip('آخر الأسبوع',async()=>{day('آخر الأسبوع');
-  await bot('📊 <b>مقدار الأسبوع</b>\nالرز يزيد عندكم تقريبًا <b>كوب كل غداء</b>.\nالكمية المناسبة: <b>5 أكواب بدل 6</b> 🍚');
-  await bot('<img src="cups.jpg" alt="5 أكواب">رسالة جاهزة للطباخ ('+S.lang+'):\n'+COOK[S.lang],1100);
-  btns([['أرسلها للطباخ ↪️',async()=>{await bot('تم ✅ أرسلها لمن يطبخ عندكم.\nوإذا عندكم مناسبة اكتبوا «عزيمة» 🎉');gathCTA()}]])})}
-function gathCTA(){btns([['🎉 عندنا عزيمة',gath]])}
-async function gath(){await bot('الله يتمم 🎉 كم عدد الضيوف؟');
-  btns([['10',()=>gq(10)],['25',()=>gq(25)],['50',()=>gq(50)]],true)}
-async function gq(n){const r=Math.round(n*0.24*10)/10,m=Math.round(n*0.12*10)/10;
-  await bot(`أبشروا 🤍 المقترح لـ<b>${n} ضيف</b>: تقريبًا <b>${r} كجم رز</b> و<b>${m} كجم لحم</b>، مع هامش يحفظ الكرم والضيافة.`);
-  skip('بعد العزيمة',async()=>{day('بعد العزيمة · 9:10 م');await bot('عساها عامرة 🌿 لو بقي أكل، صوّروا القدور 📷');btns([['📷 أرسل صورة القدور',()=>photo('pots')]])})}
-async function served(){await bot('ما شاء الله 👏 تقدرون تتبرعون فيه ويوصل لمستحقيه.',800);
-  btns([['📍 أرسل للجمعية',async()=>{await bot('شاركونا موقعكم عشان نوصل الطلب لأقرب جمعية 📍');btns([['📍 مشاركة الموقع',loc]])}],['🧊 خطة حفظ في البيت',async()=>{await bot('وزّعوه في علب صغيرة ودخلوه الثلاجة خلال ساعتين 🧊 واستخدموه خلال 3 أيام، والرز خلال يوم.')}]])}
-async function loc(){chat.lastElementChild;me('<div class="map"></div><span class="loc">📍 الموقع الحالي</span>');
-  await bot('تم إرسال طلبكم لـ<b>جمعية عنيزة لحفظ النعم</b> ✅\n🍲 الكمية: 6 كجم رز + 3 كجم لحم\n📍 الحي: حسب موقعكم\n⏳ ننتظر تأكيد الجمعية…',1200);
-  await wait(1800);await bot('✅ <b>الجمعية قبلت الطلب!</b>\nالمندوب يوصلكم الساعة <b>9:40 م</b> 🚚\nجزاكم الله خير، أكلكم بيوصل لأسر محتاجة 🤍',900);
-  skip('آخر الشهر',async()=>{day('نهاية الشهر');await bot('📊 <b>ملخص شهركم مع سُفرة</b>\n💰 وفّرتوا: <b>140 ريال</b>\n🍽️ أنقذتوا: <b>9 كجم</b> أكل\n🤝 تبرعتوا: <b>9 كجم</b> لجمعية\n🏆 أفضل أسبوع: الثاني\n\nكل لقمة تفرق 🌿');btns([['🔁 ابدأ من جديد',()=>{chat.innerHTML='';start()}]])})}
-
-async function text(t){t=t.trim();if(!t)return;me(t.replace(/</g,'&lt;'));
-  if(/عزيم|مناسب|ضيوف/.test(t))return gath();
-  if(/سخن|تسخين/.test(t))return bot('سخّنوا الرز مع رشة موية وغطّوه، لين يطلع بخاره ويسخن كله ♨️ ولا تسخنونه أكثر من مرة.');
-  if(/مرحب|هلا|السلام/.test(t))return bot('هلا والله 🌷 صوّروا البواقي بعد الأكل وأرسلوها، أو اكتبوا «عزيمة».');
-  return bot('صوّروا السفرة بعد الأكل وأرسلوها 📷 والباقي علينا 🌿\n(أو اكتبوا «عزيمة»)')}
-const msg=document.getElementById('msg');
-
-msg.addEventListener('keydown',e=>{if(e.key==='Enter'){text(msg.value);msg.value='';sendB&&sendB.classList.remove('on')}});
-const sheet=document.getElementById('sheet'),shade=document.getElementById('shade'),sendB=document.getElementById('send');
-function openSheet(){sheet.classList.add('on');shade.classList.add('on')}
-function closeSheet(){sheet.classList.remove('on');shade.classList.remove('on')}
-document.getElementById('cam').onclick=openSheet;document.getElementById('att').onclick=openSheet;shade.onclick=closeSheet;
-msg.addEventListener('input',()=>sendB.classList.toggle('on',msg.value.trim()!==''));
-sendB.onclick=()=>{if(!msg.value.trim()){openSheet();return}text(msg.value);msg.value='';sendB.classList.remove('on')};
-document.querySelectorAll('.sheet .g button').forEach(b=>b.onclick=()=>photo(b.dataset.p));
-start();
-</script>
+<script src="app.js"></script>
 </body>
 </html>
