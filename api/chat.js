@@ -1,9 +1,10 @@
 // محادثة البوت: نص أو رسالة صوتية ← Gemini ← رد قصير بأسلوب واتساب
 const { gemini, parseJSON } = require('./_gemini');
-const { saudi, limited } = require('./_util');
+const { saudi, dish, limited } = require('./_util');
+const fsafe = require('./_foodsafety');
 
 const KINDS = { size: 'عدد أفراد البيت', lang: 'لغة الشخص اللي يطبخ', guests: 'عدد الضيوف في العزيمة', city: 'اسم مدينة المستخدم', name: 'اسم الصنف أو الطبق الصحيح (اكتبه في value بشكل قصير بالاسم السعودي)' };
-const ACTIONS = ['litadoom', 'charity', 'gathering', 'photo', 'restart', 'choose', 'answer', 'impact', 'dashboard'];
+const ACTIONS = ['litadoom', 'charity', 'gathering', 'photo', 'restart', 'choose', 'answer', 'impact', 'dashboard', 'fridge_add', 'fridge_update', 'fridge_list', 'safety_check'];
 const SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -16,10 +17,62 @@ const SCHEMA = {
     reply: { type: 'STRING' },
     buttons: { type: 'ARRAY', items: { type: 'STRING' } },
     transcript: { type: 'STRING', nullable: true },
+    // بيانات إجراءات الثلاجة والسلامة (الخادم يتحقق منها قبل أي كتابة)
+    data: {
+      type: 'OBJECT', nullable: true,
+      properties: {
+        items: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: { type: 'STRING' }, grams: { type: 'NUMBER', nullable: true }, storage: { type: 'STRING', enum: ['fridge', 'freezer'] }, cooked_hours_ago: { type: 'NUMBER', nullable: true }, estimated: { type: 'BOOLEAN' } }, required: ['name'] } },
+        target: { type: 'STRING', nullable: true }, outcome: { type: 'STRING', nullable: true }, move_to: { type: 'STRING', nullable: true },
+        hours_outside: { type: 'NUMBER', nullable: true }, hot: { type: 'BOOLEAN', nullable: true }, food: { type: 'STRING', nullable: true },
+      },
+    },
   },
-  propertyOrdering: ['action', 'choice', 'number', 'number2', 'value', 'city', 'reply', 'buttons', 'transcript'],
+  propertyOrdering: ['action', 'choice', 'number', 'number2', 'value', 'city', 'data', 'reply', 'buttons', 'transcript'],
   required: ['action', 'reply'],
 };
+const numIn = (x, min, max) => (x != null && x !== '' && isFinite(x) && Number(x) >= min && Number(x) <= max ? Number(x) : null);
+// تنظيف بيانات الإجراء: ما يوصل للتطبيق (ثم للقاعدة) إلا قيم صالحة
+function cleanData(action, d) {
+  d = d && typeof d === 'object' ? d : {};
+  if (action === 'fridge_add') {
+    const items = (Array.isArray(d.items) ? d.items : []).slice(0, 10).map(i => {
+      i = i || {}; const g = numIn(i.grams, 10, 50000);
+      return { name: String(dish(i.name) || '').trim().slice(0, 40), grams: g == null ? null : Math.round(g), storage: i.storage === 'freezer' ? 'freezer' : 'fridge', cooked_hours_ago: numIn(i.cooked_hours_ago, 0, 168), estimated: !!i.estimated || g == null };
+    }).filter(i => i.name);
+    return items.length ? { items } : null;
+  }
+  if (action === 'fridge_update') {
+    const target = String(d.target || '').trim().slice(0, 40), outcome = ['eaten', 'half', 'thrown', 'expired'].includes(d.outcome) ? d.outcome : null, move_to = d.move_to === 'freezer' ? 'freezer' : null;
+    return target && (outcome || move_to) ? { target, outcome, move_to } : null;
+  }
+  if (action === 'safety_check') return { hours_outside: numIn(d.hours_outside, 0, 72), hot: !!d.hot, food: String(d.food || '').trim().slice(0, 40) || null };
+  return null;
+}
+// لو النموذج ما حدد الإجراء لسؤال «كم يجلس X؟»: نلقط الأكل من النص ونعتبرها safety_check
+function guessSafety(text) {
+  if (!/(كم|مدة).{0,25}(يجلس|يبقى|يحفظ|ينحفظ|يعيش|تجلس|تبقى|صلاحي)/.test(text)) return null;
+  const hit = fsafe.CATEGORIES.flatMap(c => c.match).filter(k => text.includes(k)).sort((a, b) => b.length - a.length)[0];
+  return hit ? { hours_outside: null, hot: false, food: hit } : null;
+}
+// ردّ السلامة من القاعدة بشكل حتمي: حكم الوقت برا الثلاجة + مدة الحفظ + المصدر
+function safetyAnswer(data, reply) {
+  const sources = [], add = [];
+  let verdict = null;
+  const pushSrc = s => { const o = fsafe.SOURCES[s]; if (o && o.url && !sources.some(x => x.url === o.url)) sources.push({ name: o.name, url: o.url }) };
+  if (data.hours_outside != null) {
+    verdict = data.hours_outside > (data.hot ? 1 : 2) ? 'discard' : 'ok';
+    if (verdict === 'discard') {
+      if (!/غذاء والدواء|SFDA/.test(reply) || !/تخلص/.test(reply)) add.push('حسب الهيئة العامة للغذاء والدواء: الأكل المطبوخ ما يبقى برا الثلاجة أكثر من ساعتين (ساعة لو الجو فوق 32°م)، فالأفضل تتخلصون منه، وما نقترح التبرع فيه 🙏');
+      fsafe.RULES.find(r => r.id === 'room_time').src.forEach(pushSrc);
+    }
+  }
+  if (data.food) {
+    const cat = fsafe.categorize(data.food), src = fsafe.SOURCES[cat.src];
+    if (verdict !== 'discard' && !(reply.includes(cat.fridge_range.split(' ')[0]) && reply.includes(src.name.split(' ')[0]))) add.push('مدة حفظ ' + cat.label + ' في الثلاجة: ' + cat.fridge_range + (cat.freezer ? '، وفي الفريزر ' + cat.freezer : '') + '. (المصدر: ' + src.name + (src.url ? '' : '، والأفضل تتأكدون بالشكل والرائحة') + ')');
+    pushSrc(cat.src);
+  }
+  return { verdict, sources: sources.slice(0, 3), extra: add.join('\n') };
+}
 const posInt = x => (x != null && isFinite(x) && Number(x) > 0 && Number(x) < 100000) ? Math.round(Number(x)) : null;
 
 function system(p) {
@@ -48,7 +101,9 @@ function system(p) {
 - العزائم: تقدير تقريبي للشخص: ربع كيلو رز مطبوخ و120 جم لحم، مع هامش يحفظ الكرم. ونصيحة: قدّموا على دفعات وخلّوا الباقي في القدور مغطى عشان يصلح للتبرع لو زاد.
 - الفائض اللي باقي في القدور وما تقدّم على السفرة يُتبرع فيه لجمعيات حفظ النعمة. الأكل اللي تقدّم على السفرة ما يصلح للتبرع لسلامة الغذاء، يُحفظ في البيت ويُستخدم.
 
-سلامة الغذاء: الأكل المطبوخ يبرد ويدخل الثلاجة خلال ساعتين. الرز المطبوخ يُستهلك خلال يوم ويسخن مرة وحدة حتى يطلع بخاره. اللحم والدجاج والمرق والصالونة خلال 3 أيام. إذا شك في رائحة أو شكل الأكل لا يأكله.
+${fsafe.promptBlock()}
+
+قاعدة صريحة: معلومات السلامة ومدد الحفظ من هذي القاعدة فقط، واذكر مصدرها باختصار، وما تخترع رقم. لو الشي مو موجود، طبّق القاعدة العامة للبواقي ونبّه للتأكد بالشكل والرائحة.
 
 عن «لتدوم» (البرنامج الوطني للحد من الفقد والهدر في الغذاء):
 - لتدوم هو البرنامج الوطني في السعودية للحد من الفقد والهدر في الغذاء، تابع للهيئة العامة للأمن الغذائي، وهو صاحب تحدي «من الوعي إلى السلوك» في هاكاثون جامعة القصيم. وله موقع رسمي وتطبيق جوال (آيفون وأندرويد وهواوي).
@@ -78,10 +133,14 @@ function system(p) {
   • restart: يبي يبدأ من جديد.
   • impact: يسأل عن أثره أو كم وفّر أو ملخصه أو إنجازاته مع سُفرة (بأي صيغة).
   • dashboard: يبي لوحة أسرته أو سجله أو صفحة أرقامه (بأي صيغة).
+  • fridge_add: يقول إنه حط أكل بالثلاجة أو الفريزر، أو عنده باقي أكل ويبي يسجّله («حطيت 2 كيلو مرقوق بالفريزر»، «باقي عندي رز من الغدا»). عبّ data.items: لكل صنف name قصير بالاسم السعودي، و grams بالجرام (1 كيلو = 1000)، ولو ما ذكر الوزن قدّره بتقدير معقول وخلّ estimated = true، و storage = fridge أو freezer، و cooked_hours_ago لو ذكر متى انطبخ.
+  • fridge_update: يقول إنه أكل أو أكل نصف أو رمى أو خرب أكل مسجّل، أو نقل شي للفريزر («أكلنا الكبسة»، «رمينا الجريش»، «نقلت اللحم للفريزر»). data.target = اسم الصنف (أو all)، و data.outcome = eaten (أكلناه) أو half (نصه) أو thrown (رميناه) أو expired (خربان أو انتهت مدته)، أو data.move_to = freezer.
+  • fridge_list: يسأل وش عنده بالثلاجة («وش عندي بالثلاجة؟»).
+  • safety_check: أي سؤال عن سلامة الأكل أو مدة حفظه أو تسخينه أو كم له برا الثلاجة («الأكل له 3 ساعات برا يصلح؟»، «كم يجلس الجريش؟»، «كيف أسخن الرز؟»). data.hours_outside = كم ساعة برا الثلاجة لو ذكر، و data.hot = true لو قال الجو حار أو الأكل كان برا البيت بالصيف، و data.food = اسم الأكل لو ذكره. جاوب في reply من القاعدة مع ذكر المصدر باختصار. لو تجاوز الوقت برا الثلاجة (ساعتين، أو ساعة لو حار) انصحه بلطف يتخلص منه، ولا تقترح التبرع.
   • choose: لما فيه أزرار معلّقة (مذكورة تحت) والمستخدم يجاوب بكلام معناه أحدها: اكتب رقم الزر في "choice". مثال: لو الزر 1 «باقي في القدور» وكتب «محد لمس الأكل» فهذا choose مع choice=1.
   • answer: لما البوت ينتظر إدخال حر (مذكور تحت) والمستخدم أعطاه القيمة بأي صيغة: اكتبها في "value" (العدد في "number"، واللغة باسمها مثل عربي أو English أو Tagalog أو اردو، والمدينة بالعربي مصحّحة).
 - الأرقام بالكلام: فهمها واكتبها رقمًا في "number" (مثل «خمسة» = 5، «عشرين» = 20، «ثلاثين تقريبًا» = 30، «درزن» = 12، «نص مية» = 50، «خمسة وعشرين» = 25).
-- في choose و answer و charity و gathering و restart و impact و dashboard خلّ "reply" نص فاضي "" لأن التطبيق يكمل الخطوة بنفسه. أما litadoom و photo فاكتب رد قصير جدًا.
+- في choose و answer و charity و gathering و restart و impact و dashboard و fridge_add و fridge_update و fridge_list خلّ "reply" نص فاضي "" لأن التطبيق يكمل الخطوة بنفسه. أما litadoom و photo فاكتب رد قصير جدًا.
 - إذا الرسالة سؤال أو كلام ثاني مو إجابة للسؤال المعلّق (مثل «كيف أسخّن الرز» وهو ينتظر عدد الضيوف): جاوبه عادي بدون action (null)، وذكّره بالسؤال المعلّق. لا تحدد action بس لأن فيه سؤال معلّق؛ حدده فقط لو المستخدم نفسه طلبه أو جاوب عليه.
 
 ${Array.isArray(p.options) && p.options.length ? 'أزرار البوت المعلّقة الحين:\n' + p.options.slice(0, 6).map((o, i) => (i + 1) + ') ' + String(o).slice(0, 40)).join('\n') + '\n\n' : ''}${KINDS[p.kind] ? 'البوت ينتظر إدخال حر: ' + KINDS[p.kind] + '\n\n' : ''}عن الأسرة: عدد الأفراد ${p.size || 'غير محدد'}، لغة الطباخ ${p.lang || 'عربي'}.${p.stats ? '\nسجل الأسرة الحقيقي: ' + String(p.stats).slice(0, 300) + ' (لا تذكر أرقامًا غير هذي).' : ''}${p.meal ? `\nآخر وجبة حللها المحرك: ${String(p.meal).slice(0, 400)}` : ''}
@@ -150,14 +209,21 @@ module.exports = async (req, res) => {
       generationConfig: { temperature: 0.7, maxOutputTokens: 2048, responseMimeType: 'application/json', responseSchema: SCHEMA },
     }, { timeout: 18000 });
     const j = parseJSON(text) || { reply: text };
-    const action = ACTIONS.includes(j.action) ? j.action : null;
+    let action = ACTIONS.includes(j.action) ? j.action : null;
+    let data = action ? cleanData(action, j.data) : null;
+    const userText = !(b.audio && b.audio.data) ? String(b.text || '') : '';
+    if (!action) { const g = guessSafety(userText); if (g) { action = 'safety_check'; data = g } }
+    if ((action === 'fridge_add' || action === 'fridge_update') && !data) action = null;   // بيانات ناقصة: ما نكتب شي
     // نطبّع الرد للأسلوب السعودي إلا لو المستخدم يكلّمنا بلغة ثانية
     const norm = x => (/[؀-ۿ]/.test(x) ? saudi(x) : x);
-    const reply = norm(String(j.reply || '').trim()) || (action ? '' : '…');
+    let reply = norm(String(j.reply || '').trim()) || (action ? '' : '…');
+    let verdict = null, sources = [];
+    if (action === 'safety_check') { const s = safetyAnswer(data || {}, reply === '…' ? '' : reply); verdict = s.verdict; sources = s.sources; if (s.extra) reply = (reply === '…' ? '' : reply + '\n\n') + norm(s.extra) }
+    if (!action && (j.action === 'fridge_add' || j.action === 'fridge_update') && reply === '…') reply = 'وضّحوا لي الصنف والكمية أكثر 🙏';
     const buttons = Array.isArray(j.buttons) ? j.buttons.filter(x => typeof x === 'string' && x.trim() && x.length <= 28).map(norm).slice(0, 3) : [];
     const transcript = j.transcript && j.transcript !== 'null' ? String(j.transcript).slice(0, 1000) : null;
     const str = (x, n) => x && x !== 'null' ? String(x).slice(0, n) : null;
-    res.status(200).json({ reply, buttons, action, choice: posInt(j.choice), number: posInt(j.number), number2: posInt(j.number2), value: str(j.value, 60), city: str(j.city, 40), transcript, model });
+    res.status(200).json({ reply, buttons, action, choice: posInt(j.choice), number: posInt(j.number), number2: posInt(j.number2), value: str(j.value, 60), city: str(j.city, 40), data, verdict, sources, transcript, model });
   } catch (e) {
     res.status(502).json({ error: String((e && e.message) || e).slice(0, 300) });
   }

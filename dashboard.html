@@ -93,6 +93,33 @@ header .s{font-size:14px;color:var(--mut);margin-top:2px}
 .err .e{font-size:54px}
 .err h2{color:var(--wine);margin:10px 0 6px}
 .err p{color:var(--mut);line-height:1.8;margin:0 0 18px}
+.fc{background:var(--sand);border-radius:14px;padding:12px;margin:0 0 10px}
+.fc .fh{display:flex;align-items:center;gap:10px}
+.fc .ic{font-size:22px;flex-shrink:0}
+.fc .n{flex:1;min-width:0}.fc .n b{display:block;font-size:15px}.fc .n span{font-size:12.5px;color:var(--mut)}
+.fc .r{font-size:13px;font-weight:800;color:var(--wine);white-space:nowrap}
+.cd{height:8px;background:var(--line);border-radius:5px;overflow:hidden;margin:10px 0}
+.cd i{display:block;height:100%;width:0;background:var(--gold);border-radius:5px;transition:width .8s}
+.fc.warn{background:var(--warnbg)}.fc.warn .r{color:var(--warn)}.fc.warn .cd i{background:var(--warn)}
+.fc.exp{background:#F1ECE6}.fc.exp .r{color:var(--warn)}.fc.exp .cd i{background:#B9A9A0}
+.fa{display:flex;flex-wrap:wrap;gap:6px}
+.fa button{flex:1;min-width:70px;border:1.5px solid var(--wine);background:#fff;color:var(--wine);font:inherit;font-weight:700;font-size:13.5px;border-radius:10px;padding:8px 6px;cursor:pointer}
+.fa button:active{background:var(--tint)}
+.fc.busy{opacity:.5;pointer-events:none}
+.fc .src{font-size:11.5px;color:var(--mut);margin-top:8px;line-height:1.6}.fc .src a,.rs a{color:var(--wine)}
+.rl{display:flex;gap:10px;background:var(--sand);border-radius:12px;padding:10px 12px;margin:0 0 8px}
+.rl .ri{font-size:22px;flex-shrink:0}.rl p{margin:0 0 4px;font-size:13.5px;line-height:1.7}.rs{font-size:11.5px;color:var(--mut);line-height:1.8}
+.rs .cons{background:#FFF8E8;border:1px solid #EBD7A6;color:#7A5A12;border-radius:999px;padding:1px 8px}
+.kpis{display:flex;gap:10px;margin-bottom:10px}.kpis div{flex:1;background:var(--tint);border-radius:12px;padding:10px;text-align:center}.kpis b{display:block;font-size:22px;color:var(--wine);font-weight:800}.kpis span{font-size:12.5px;color:var(--mut)}
+.mrow{cursor:pointer}.chev{color:var(--mut);transition:transform .2s;font-size:12px}.mrow.open .chev{transform:rotate(180deg)}
+.tl{padding:8px 12px 2px}
+.tlo{list-style:none;margin:0;padding:0}
+.tlo li{display:flex;gap:10px;align-items:flex-start;padding:5px 0}
+.tlo li>span{width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid var(--wine);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.tlo li b{font-size:13.5px;display:block}.tlo li small{font-size:12px;color:var(--mut)}
+.tlo li.pend>span{border-style:dashed;border-color:#C9BBAA}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));background:var(--ink);color:#fff;border-radius:12px;padding:10px 16px;font-size:14px;z-index:9;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90%;text-align:center}#toast.on{opacity:1}
+.noanim .card{animation:none}
 @media (prefers-reduced-motion:reduce){.card{animation:none}.bar .tr i{transition:none}}
 </style>
 </head>
@@ -104,6 +131,7 @@ header .s{font-size:14px;color:var(--mut);margin-top:2px}
   </header>
   <div id="main"><div class="sk"></div><div class="sk" style="height:110px"></div><div class="sk" style="height:180px"></div></div>
 </div>
+<div id="toast"></div>
 <a class="back" href="/">💬 ارجع للبوت</a>
 <script>
 const $ = s => document.querySelector(s);
@@ -124,15 +152,28 @@ const COOK = {
 };
 const cupsAr = x => { const w = Math.floor(x), h = x % 1 ? ' ونص' : ''; return x === .5 ? 'نص كوب' : w === 1 ? 'كوب' + h : w === 2 ? 'كوبين' + h : w + ' أكواب' + h };
 
+let QUIET = false, tickT = null;
 function countUp(el, to, dec = 0, ms = 1000) {
-  if (reduce || !isFinite(to)) { el.textContent = dec ? to.toFixed(dec) : Math.round(to); return }
+  if (reduce || QUIET || !isFinite(to)) { el.textContent = dec ? to.toFixed(dec) : Math.round(to); return }
   const t0 = performance.now();
   const step = t => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3), v = to * e; el.textContent = dec ? v.toFixed(dec) : Math.round(v); if (k < 1) requestAnimationFrame(step) };
   requestAnimationFrame(step);
 }
 const dayLabel = iso => { const d = new Date(iso), n = new Date(), a = new Date(d.getFullYear(), d.getMonth(), d.getDate()), b = new Date(n.getFullYear(), n.getMonth(), n.getDate()), k = Math.round((b - a) / 864e5); let h = d.getHours(), m = String(d.getMinutes()).padStart(2, '0'); const p = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; const tm = `${h}:${m} ${p}`; return (k <= 0 ? 'اليوم' : k === 1 ? 'أمس' : k < 8 ? `قبل ${k} أيام` : `${d.getDate()}/${d.getMonth() + 1}`) + ' · ' + tm };
 const grams = g => (g >= 1000 ? f1(g / 1000) + ' كجم' : Math.round(g) + ' جم');
-const hoursTxt = h => { if (h < 1) return 'أقل من ساعة'; if (h < 24) return `باقي ${Math.round(h)} ساعة`; const d = Math.floor(h / 24), r = Math.round(h - d * 24); return `باقي ${d === 1 ? 'يوم' : d === 2 ? 'يومين' : d + ' أيام'}` + (r ? ` و${r} ساعة` : '') };
+const hoursTxt = h => { if (h < 1) return 'أقل من ساعة'; if (h < 24) return `باقي ${Math.round(h)} ساعة`; const d = Math.floor(h / 24); if (d >= 60) return `باقي ${Math.round(d / 30)} شهر`; const r = Math.round(h - d * 24); return `باقي ${d === 1 ? 'يوم' : d === 2 ? 'يومين' : d + ' أيام'}` + (r && d < 7 ? ` و${r} ساعة` : '') };
+const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600) };
+const TLI = { analyzed: ['📷', 'تحليل الصورة'], fridge: ['🧊', 'دخل الثلاجة'], freezer: ['❄️', 'انتقل للفريزر'], eaten: ['✅', 'أُكل'], partly_eaten: ['🌓', 'أُكل نصفه'], thrown: ['🗑️', 'رُمي'], expired: ['⌛', 'انتهت مدته قبل ما ينأكل'], donated: ['🤝', 'تبرعتوا فيه'] };
+const END = ['eaten', 'partly_eaten', 'thrown', 'expired', 'donated'];
+const timeline = m => '<ol class="tlo">' + m.timeline.map(x => { const [i, t] = TLI[x.step] || ['•', x.step]; return `<li><span>${i}</span><div><b>${t}${x.detail ? ' · ' + esc(x.detail) : ''}</b><small>${dayLabel(x.at)}</small></div></li>` }).join('') + (m.timeline.some(x => END.includes(x.step)) ? '' : '<li class="pend"><span>⏳</span><div><b>بانتظار المصير</b></div></li>') + '</ol>';
+const RI = { room_time: '⏱️', temps: '🌡️', cooling: '🧊', reheat: '♨️', rice: '🍚', leftovers_general: '📅', thaw: '💧', doubt: '👃', donation: '🤝' };
+const srcLink = (name, url) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(name)}</a>` : `<span class="cons">${esc(name)}</span>`;
+function fridgeCard(i) {
+  const fz = i.storage === 'freezer', exp = i.hours_left <= 0;
+  return `<div class="fc" data-id="${esc(i.item_id)}" data-su="${esc(i.safe_until)}" data-tot="${i.total_hours || ''}"><div class="fh"><span class="ic">${fz ? '❄️' : '🧊'}</span><div class="n"><b>${esc(i.name)}</b><span>${grams(i.grams)}${i.dish_name && i.dish_name !== i.name ? ' · ' + esc(i.dish_name) : ''}${fz ? ' · فريزر' : ''}</span></div><div class="r"></div></div><div class="cd"><i></i></div>
+    <div class="fa">${exp ? '<button data-a="expired">تخلصنا منه</button>' : '<button data-a="eaten">أكلناه</button><button data-a="half">نصه</button><button data-a="thrown">رميناه</button>' + (fz ? '' : '<button data-a="freezer">للفريزر ❄️</button>')}</div>
+    <div class="src">مدة الحفظ: ${esc(i.range)} · المصدر: ${srcLink(i.source_name, i.source_url)}${i.source_url ? '' : ''}</div></div>`;
+}
 const OUT = { eaten: ['✅', 'أُكل'], partly_eaten: ['🌓', 'أُكل نصفه'], thrown: ['🗑️', 'رُمي'], donated: ['🤝', 'تبرعتوا فيه'], in_fridge: ['🧊', 'في الثلاجة'], analyzed: ['📷', 'تم تحليله'] };
 
 function ring(p) {
@@ -166,10 +207,8 @@ function render(D) {
     h += `<div class="card"><h2>🔄 نسبة الإنقاذ</h2><div class="ringw">${ring(D.saved_ratio)}<p>أنقذتوا <b>${pct}%</b> من البواقي.<br>من <b>${f1(st.kg_leftovers_total)} كجم</b> بواقي، رجعتوا <b>${f1(st.kg_saved)} كجم</b> للاستفادة${st.kg_thrown ? `، ورُمي <b>${f1(st.kg_thrown)} كجم</b>` : ''}.</p></div></div>`;
     h += `<div class="card"><h2>📈 آخر 30 يوم</h2><div class="chart"><div class="tip" id="tip"></div>${bars(D.daily)}</div><div class="legend"><span><i style="background:#D9C08A"></i>بواقي</span><span><i style="background:#6E1E2B"></i>منقذ</span><span style="margin-inline-start:auto">المس العمود لتفاصيل اليوم</span></div></div>`;
   }
-  // الثلاجة
-  h += `<div class="card"><h2>🧊 في ثلاجتكم الحين</h2>` + (D.fridge.length
-    ? `<div class="list" id="fridge">` + D.fridge.map(i => `<div class="it" data-su="${esc(i.safe_until)}"><span class="ic">🍽️</span><div class="n"><b>${esc(i.name)}</b><span>${grams(i.grams)}${i.dish_name ? ' · ' + esc(i.dish_name) : ''}</span></div><div class="r"></div></div>`).join('') + '</div>'
-    : `<div class="mini">ما فيه أكل محفوظ حاليًا. لما تقولون للبوت «دخل الثلاجة» يظهر هنا مع عدّاد الصلاحية.</div>`) + `</div>`;
+  // الثلاجة: بطاقات تفاعلية (تحدّث القاعدة عبر /api/track بالرمز، وتتحدث الأرقام فورًا)
+  h += `<div class="card"><h2>🧊 في ثلاجتكم الحين</h2>` + (D.fridge.length ? `<div id="fridge">${D.fridge.map(fridgeCard).join('')}</div>` : `<div class="mini">ما فيه أكل محفوظ حاليًا. لما تقولون للبوت «دخل الثلاجة» أو «حطيت كيلو رز بالثلاجة» يظهر هنا مع عدّاد الصلاحية.</div>`) + `</div>`;
   // مقدار
   const lang = f.cook_language || 'عربي', tpl = COOK[lang] || COOK['English'];
   if (D.maqdar) {
@@ -183,8 +222,13 @@ function render(D) {
     const mx = D.top_items[0].grams || 1;
     h += `<div class="card"><h2>📊 أكثر الأصناف اللي تزيد</h2>` + D.top_items.map(t => `<div class="bar"><div class="h"><b>${esc(t.name)}</b><span>${grams(t.grams)}</span></div><div class="tr"><i data-w="${Math.round(t.grams / mx * 100)}"></i></div></div>`).join('') + `</div>`;
   }
-  // السجل
-  if (D.meals.length) h += `<div class="card"><h2>🧾 آخر الوجبات</h2><div class="list">` + D.meals.map(m => { const o = OUT[m.status] || OUT.analyzed, nm = m.dish_name || m.items.map(i => i.name).join(' و') || 'وجبة'; return `<div class="it"><span class="ic">${o[0]}</span><div class="n"><b>${esc(nm)}</b><span>${dayLabel(m.created_at)} · ${o[1]}</span></div><div class="r">${grams(m.total_grams || 0)}</div></div>` }).join('') + `</div></div>`;
+  // انتهى قبل ما ينأكل (هذا الشهر)
+  const ES = D.expired_stats || { count: 0 };
+  h += `<div class="card"><h2>⌛ انتهى قبل ما ينأكل <small>هذا الشهر</small></h2>` + (ES.count
+    ? `<div class="kpis"><div><b>${ES.count}</b><span>صنف انتهى</span></div><div><b>${grams(ES.grams)}</b><span>الوزن</span></div></div><div class="rec">أكثر صنف ينتهي عندكم: <b>${esc(ES.top.name)}</b> (${ES.top.count} ${ES.top.count === 1 ? 'مرة' : 'مرات'}).<br>${esc(ES.advice.text)}<div class="rs" style="margin-top:6px">المصدر: ${srcLink(ES.advice.source_name, ES.advice.source_url)}</div></div>`
+    : `<div class="mini">ما انتهى عندكم أي أكل هذا الشهر 👏 كمّلوا على كذا.</div>`) + `</div>`;
+  // السجل: المس الوجبة لتشوف خطها الزمني
+  if (D.meals.length) h += `<div class="card"><h2>🧾 آخر الوجبات <small>المس الوجبة للتفاصيل</small></h2><div class="list">` + D.meals.map(m => { const last = m.timeline[m.timeline.length - 1], o = (END.includes(last.step) ? [TLI[last.step][0], TLI[last.step][1]] : OUT[m.status] || OUT.analyzed), nm = m.dish_name || m.items.map(i => i.name).join(' و') || 'وجبة'; return `<div class="mw"><div class="it mrow"><span class="ic">${o[0]}</span><div class="n"><b>${esc(nm)}</b><span>${dayLabel(m.created_at)} · ${o[1]}</span></div><div class="r">${grams(m.total_grams || 0)}</div><span class="chev">▼</span></div><div class="tl" hidden>${timeline(m)}</div></div>` }).join('') + `</div></div>`;
   // التبرعات والعزائم
   const DS = { agreed: 'تم الاتفاق', contacted: 'تم التواصل', no_answer: 'ما ردوا' };
   if (D.donations.length || D.gatherings.length) {
@@ -201,22 +245,48 @@ function render(D) {
       <div class="bar"><div class="h"><b>أسرتكم</b><span>${f1(c.you_leftover_kg)} كجم</span></div><div class="tr"><i data-w="${Math.round(c.you_leftover_kg / mx * 100)}"></i></div></div>
       <div class="bar gold"><div class="h"><b>متوسط الأسرة في ${esc(c.city)}</b><span>${f1(c.avg_leftover_kg)} كجم</span></div><div class="tr"><i data-w="${Math.round(c.avg_leftover_kg / mx * 100)}"></i></div></div><div class="mini">من ${c.families} أسر في المدينة (أرقام مجمعة).</div></div>`;
   }
+  // سلامة أكلكم: القواعد العامة من قاعدة المعرفة، وكل قاعدة برابط مصدرها (والمتحفظة مكتوب عليها «تقدير متحفظ»)
+  if (D.safety_rules && D.safety_rules.length) h += `<div class="card"><h2>🛡️ سلامة أكلكم</h2>${D.safety_rules.map(r => `<div class="rl"><span class="ri">${RI[r.id] || '✔️'}</span><div><p>${esc(r.text)}</p><div class="rs">المصدر: ${r.sources.map(x => srcLink(x.name, x.url)).join(' · ')}</div></div></div>`).join('')}</div>`;
   // لتدوم
   const pf = platform(), L = pf === 'desktop' ? [['🍎 App Store', LTD.ios], ['🤖 Google Play', LTD.android], ['📱 AppGallery', LTD.huawei]] : [[pf === 'ios' ? '⬇️ حمّل من App Store' : pf === 'android' ? '⬇️ حمّل من Google Play' : '⬇️ حمّل من AppGallery', LTD[pf]]];
   h += `<div class="card"><h2>📲 تطبيق لتدوم</h2><div class="mini" style="margin-bottom:2px">البرنامج الوطني للحد من الفقد والهدر في الغذاء، يرفع الوعي وسُفرة تحوّله لسلوك يومي في بيتكم.</div><div class="btns">${L.map(([t, u]) => `<a class="btn" href="${u}" target="_blank" rel="noopener">${t}</a>`).join('')}<a class="btn o" href="${LTD.site}" target="_blank" rel="noopener">🌐 موقع لتدوم</a></div></div>`;
   h += `<div class="note">🔒 بياناتكم خاصة بأسرتكم، والمرصد يشوف أرقام مجمعة بدون أسماء.</div>`;
   $('#main').innerHTML = h;
+  $('#main').classList.toggle('noanim', QUIET);
+  clearInterval(tickT);
 
   if (st.meals_analyzed) {
     countUp($('#cSaved'), st.kg_saved, 1); countUp($('#cSar'), st.sar_saved); countUp($('#cDon'), st.kg_donated, 1); countUp($('#cMeals'), st.meals_analyzed);
-    const rc = $('#ringc'), rt = $('#ringt'); requestAnimationFrame(() => { rc.style.strokeDashoffset = rc.dataset.to }); countUp({ set textContent(v) { rt.textContent = v + '%' } }, Math.round(D.saved_ratio * 100));
+    const rc = $('#ringc'), rt = $('#ringt'); if (QUIET) rc.style.strokeDashoffset = rc.dataset.to; else requestAnimationFrame(() => { rc.style.strokeDashoffset = rc.dataset.to }); countUp({ set textContent(v) { rt.textContent = v + '%' } }, Math.round(D.saved_ratio * 100));
     const bsvg = $('#bars'), tip = $('#tip'), n = D.daily.length;
     const show = e => { const r = bsvg.getBoundingClientRect(), k = Math.max(0, Math.min(n - 1, Math.floor((e.clientX - r.left) / r.width * n))), d = D.daily[k], dt = new Date(d.day + 'T12:00:00'); tip.innerHTML = `${dt.getDate()}/${dt.getMonth() + 1}<br>بواقي ${grams(d.grams_left)} · منقذ ${grams(d.grams_saved)}`; tip.style.left = Math.max(70, Math.min(r.width - 70, (k + .5) / n * r.width)) + 'px'; tip.classList.add('on') };
     bsvg.addEventListener('pointerdown', show); bsvg.addEventListener('pointermove', show); bsvg.addEventListener('pointerleave', () => tip.classList.remove('on')); bsvg.addEventListener('pointerup', () => setTimeout(() => tip.classList.remove('on'), 1800));
   }
-  document.querySelectorAll('.bar .tr i[data-w]').forEach(i => requestAnimationFrame(() => { i.style.width = i.dataset.w + '%' }));
-  const tick = () => document.querySelectorAll('#fridge .it').forEach(el => { const hl = (Date.parse(el.dataset.su) - Date.now()) / 36e5, r = el.querySelector('.r'); r.textContent = hl <= 0 ? 'انتهت الصلاحية' : (hl < 12 ? '⏳ ' : '') + hoursTxt(hl); el.classList.toggle('warn', hl < 12) });
-  tick(); setInterval(tick, 60000);
+  document.querySelectorAll('.bar .tr i[data-w]').forEach(i => { if (QUIET) i.style.width = i.dataset.w + '%'; else requestAnimationFrame(() => { i.style.width = i.dataset.w + '%' }) });
+  const tick = () => document.querySelectorAll('#fridge .fc').forEach(el => {
+    const hl = (Date.parse(el.dataset.su) - Date.now()) / 36e5, tot = parseFloat(el.dataset.tot) || 72, exp = hl <= 0;
+    el.querySelector('.r').textContent = exp ? 'انتهت مدته الآمنة' : (hl < 12 ? '⏳ ' : '') + hoursTxt(hl);
+    el.querySelector('.cd i').style.width = (exp ? 100 : Math.max(3, Math.min(100, hl / tot * 100))) + '%';
+    el.classList.toggle('warn', !exp && hl < 12); el.classList.toggle('exp', exp);
+  });
+  tick(); tickT = setInterval(tick, 60000);
+  document.querySelectorAll('.mrow').forEach(r => r.addEventListener('click', () => { const t = r.nextElementSibling; t.hidden = !t.hidden; r.classList.toggle('open', !t.hidden) }));
+  const fr = $('#fridge');
+  if (fr) fr.addEventListener('click', async e => {
+    const b = e.target.closest('button[data-a]'); if (!b) return;
+    const card = b.closest('.fc'), a = b.dataset.a, body = { type: 'fridge_update', dash_token: token, item_id: card.dataset.id };
+    if (a === 'freezer') body.move_to = 'freezer'; else body.outcome = a;
+    card.classList.add('busy');
+    try {
+      const r = await fetch('/api/track', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      if (r.status === 403) { card.classList.remove('busy'); return toast('هذي لوحة تجريبية للعرض فقط') }
+      if (!r.ok) throw 0;
+      const j = await r.json();
+      if (j.blocked && j.blocked.length) { card.classList.remove('busy'); return toast('انتهت مدته الآمنة، ما ننصح بتجميده') }
+      await refresh();
+      toast({ eaten: 'تم ✅ سجلنا إنه انأكل', half: 'تم ✅ سجلنا إنه انأكل نصه', thrown: 'تم ✅ سجلنا إنه انرمى', expired: 'تم ✅ سجلنا إنه انتهت مدته', freezer: 'تم ✅ نقلناه للفريزر ❄️' }[a]);
+    } catch (err) { card.classList.remove('busy'); toast('ما قدرنا نحدّث الحين، جرّبوا مرة ثانية') }
+  });
   const cb = $('#copyCook'); if (cb) cb.onclick = async () => { const t = window.__cook; try { await navigator.clipboard.writeText(t) } catch (e) { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy') } catch (e2) {} a.remove() } cb.textContent = '✓ تم النسخ'; setTimeout(() => { cb.textContent = '📋 انسخ رسالة الطباخ' }, 2000) };
 }
 
@@ -225,6 +295,12 @@ function fail(code) {
   $('#main').innerHTML = code === 404
     ? `<div class="err"><div class="e">🔍</div><h2>ما لقينا هذي اللوحة</h2><p>الرابط غير صحيح أو ناقص. افتحوا اللوحة من البوت عشان يوصلكم الرابط الصحيح.</p><a class="btn" href="/">💬 ارجع للبوت</a></div>`
     : `<div class="err"><div class="e">😅</div><h2>عندنا ضغط الحين</h2><p>ما قدرنا نحمّل لوحتكم، جرّبوا بعد شوي.</p><button class="btn" onclick="load()">🔁 أعد المحاولة</button></div>`;
+}
+// تحديث الأرقام فورًا بعد أي تعديل (بدون حركة العدّ)
+async function refresh() {
+  const r = await fetch('/api/dashboard?t=' + encodeURIComponent(token));
+  if (!r.ok) throw 0;
+  QUIET = true; try { render(await r.json()) } finally { QUIET = false }
 }
 async function load() {
   if (!token) return fail(404);

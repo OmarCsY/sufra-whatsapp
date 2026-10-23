@@ -64,6 +64,12 @@ const CASES = [
   ['أثري 3', 'ابي ملخص انجازاتي مع سفرة', null, r => r.action === 'impact'],
   ['لوحة الأسرة 1', 'وين اشوف لوحة اسرتي', null, r => r.action === 'dashboard'],
   ['لوحة الأسرة 2', 'ابي ارجع لسجل وجباتنا', null, r => ['dashboard', 'impact'].includes(r.action)],
+  // الثلاجة الذكية وسلامة الغذاء
+  ['ثلاجة: إضافة', 'حطيت كيلو جريش بالثلاجة', null, r => r.action === 'fridge_add' && r.data && r.data.items && /جريش/.test(r.data.items[0].name) && r.data.items[0].grams === 1000 && r.data.items[0].storage === 'fridge'],
+  ['ثلاجة: قائمة', 'وش عندي بالثلاجة', null, r => r.action === 'fridge_list'],
+  ['ثلاجة: تحديث (أكلنا)', 'أكلنا الجريش', null, r => r.action === 'fridge_update' && r.data && r.data.outcome === 'eaten' && /جريش/.test(r.data.target)],
+  ['سلامة: الرز 3 ساعات برا', 'الرز له 3 ساعات برا يصلح؟', null, r => r.action === 'safety_check' && r.verdict === 'discard' && /تخلص/.test(r.reply) && /غذاء والدواء/.test(r.reply)],
+  ['سلامة: كم يجلس الدجاج', 'كم يجلس الدجاج المطبوخ بالثلاجة', null, r => r.action === 'safety_check' && /3–4 أيام/.test(r.reply) && /FoodSafety|USDA/.test(r.reply)],
   // صورة وإعادة
   ['صورة', 'كيف ارسل لكم صورة الاكل', null, r => r.action === 'photo'],
   ['إعادة', 'خلنا نبدأ من الاول', null, r => r.action === 'restart'],
@@ -100,6 +106,13 @@ const img = f => readFileSync(join(ROOT, f)).toString('base64');
   const j = r.json || {}, names = [j.dish_name, ...(j.items || []).map(i => i.name)].filter(Boolean).join(' | ');
   const pass = r.status === 200 && (/شكشوكة/.test(names) || (/بيض/.test(names) && /طماطم/.test(names))) && !hasBanned(names);
   rows.push([++n, 'analyze: s-shakshuka.jpg', pass ? 'PASS' : 'FAIL', `via=${j.via} ${names}`]);
+}
+{
+  // مدة الحفظ من قاعدة سلامة الغذاء: الرز 24 ساعة، الدجاج 3 أيام
+  const r = await post('/api/analyze', { image: img('s-kabsa.jpg'), mime: 'image/jpeg' }); await sleep(GAP);
+  const j = r.json || {}, hl = n => { const i = (j.items || []).find(x => x.name === n); return i ? (Date.parse(i.safe_until) - Date.now()) / 36e5 : null };
+  const rice = hl('رز'), chk = hl('دجاج');
+  rows.push([++n, 'analyze: safe_until رز = 24 ساعة، دجاج = 3 أيام', rice != null && chk != null && Math.abs(rice - 24) < 0.5 && Math.abs(chk - 72) < 0.5 ? 'PASS' : 'FAIL', `via=${j.via} رز=${rice && rice.toFixed(1)}h دجاج=${chk && chk.toFixed(1)}h`]);
 }
 {
   const r = await post('/api/analyze', { image: img('s-chair.jpg'), mime: 'image/jpeg' });

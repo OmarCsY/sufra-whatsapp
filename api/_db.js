@@ -36,10 +36,17 @@ async function family(id, token) {
   return (rows && rows[0]) || null;
 }
 
+// التحقق بالرمز وحده (للوحة الأسرة: الصفحة ما تعرف family_id). نستخدمه فقط لإجراءات الثلاجة.
+async function familyByToken(token) {
+  if (!TOKEN.test(String(token || ''))) return null;
+  const rows = await db.select('families', `dash_token=eq.${q(token)}&select=id,dash_token,is_demo,household_size,cook_language,city&limit=1`);
+  return (rows && rows[0]) || null;
+}
+
 // أدوات تحقق من المدخلات
 const str = (x, n) => { const s = String(x == null ? '' : x).trim().slice(0, n); return s || null };
 const num = (x, min, max) => { if (x === '' || x == null) return null; const v = Number(x); return isFinite(v) && v >= min && v <= max ? v : null };
 const int = (x, min, max) => { const v = num(x, min, max); return v == null ? null : Math.round(v) };
 const oneOf = (x, list) => (list.includes(x) ? x : null);
 
-module.exports = { db, ready, family, newToken, q, UUID, TOKEN, str, num, int, oneOf };
+module.exports = { db, ready, family, familyByToken, newToken, q, UUID, TOKEN, str, num, int, oneOf };

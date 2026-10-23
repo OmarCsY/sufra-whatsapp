@@ -2,7 +2,7 @@
 const { gemini, parseJSON, fetchT } = require('./_gemini');
 const { saudi, dish, inferDish, limited } = require('./_util');
 
-const { priced } = require('./_prices');
+const { priced, safety } = require('./_prices');
 const { db, ready, family } = require('./_db');const LARGE = 10;
 
 const PROMPT = `حلل صورة وجبة الأكل المرفقة (بواقي بعد الأكل أو قدور أو طبق كامل)، وقدّر كل صنف ظاهر ووزنه بالجرام بدقة.
@@ -55,7 +55,8 @@ function shape(d) {
 
 // مخرجات محرك n8n: نطبّع الأسماء بقاموس الأطباق والأسلوب السعودي (بدون لمس أسعار المحرك)
 function clean(j) {
-  const items = (j.items || []).map(i => (i && i.name ? { ...i, name: dish(i.name) } : i));
+  // مدة الحفظ من قاعدة سلامة الغذاء (مصدر واحد)، وأسعار المحرك وأوزانه ما نلمسها
+  const items = (j.items || []).map(i => { if (!(i && i.name)) return i; const name = dish(i.name), s = safety(name); return { ...i, name, safe_until: s.safe_until, food_category: s.food_category, safety_source: s.safety_source } });
   const out = { ...j, items };
   const good = items.filter(i => i && i.name);
   out.dish_name = j.dish_name ? dish(j.dish_name) : (good.length ? inferDish(good) : null);
@@ -82,6 +83,7 @@ async function store(b, out) {
     value_sar: i.value_sar != null && isFinite(i.value_sar) ? Number(i.value_sar) : null,
     safe_until: i.safe_until && !isNaN(Date.parse(i.safe_until)) ? new Date(i.safe_until).toISOString() : null,
     state: i.state === 'سليم' || i.state === 'باقي' ? i.state : null,
+    food_category: i.food_category ? String(i.food_category).slice(0, 30) : null, safety_source: i.safety_source ? String(i.safety_source).slice(0, 80) : null,
     confidence: i.confidence != null && isFinite(i.confidence) ? Math.max(0, Math.min(1, Number(i.confidence))) : null,
   })));
   return mealId;

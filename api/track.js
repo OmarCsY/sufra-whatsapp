@@ -1,19 +1,11 @@
 // تسجيل أحداث الأسرة: ثلاجة، مصير الأكل، تصحيح، تبرع، عزيمة، وأي حدث عام. كل طلب يتحقق من family_id + dash_token.
 const { limited } = require('./_util');
-const { db, ready, family, q, UUID, str, num, int, oneOf } = require('./_db');
+const { db, ready, family, familyByToken, q, UUID, str, num, int, oneOf } = require('./_db');
+const F = require('./_fridge');
 
 const OUTCOMES = ['eaten', 'half', 'thrown'];
-const MEAL_STATUS = { eaten: 'eaten', half: 'partly_eaten', thrown: 'thrown', donated: 'donated' };
 const EVENT_TYPE = /^[a-z][a-z0-9_]{0,29}$/;
-
-// نحدّث حالة الوجبة لما يصير لكل أصنافها مصير
-async function recompute(mealId, famId) {
-  const items = await db.select('meal_items', `meal_id=eq.${mealId}&select=outcome`);
-  if (!items.length || items.some(i => !i.outcome)) return;
-  const set = [...new Set(items.map(i => i.outcome))];
-  const status = set.length === 1 ? MEAL_STATUS[set[0]] || 'partly_eaten' : 'partly_eaten';
-  await db.update('meals', `id=eq.${mealId}&family_id=eq.${famId}`, { status, closed_at: new Date().toISOString() });
-}
+const recompute = F.recompute;
 
 module.exports = async (req, res) => {
   res.setHeader('cache-control', 'no-store');
@@ -25,7 +17,8 @@ module.exports = async (req, res) => {
   if (!EVENT_TYPE.test(type)) return res.status(400).json({ error: 'bad_type' });
 
   try {
-    const fam = await family(b.family_id, b.dash_token);
+    // إجراءات الثلاجة تقبل الرمز وحده (من لوحة الأسرة)، وباقي الأنواع تحتاج family_id + dash_token معًا
+    const fam = type.startsWith('fridge_') && !b.family_id ? await familyByToken(b.dash_token) : await family(b.family_id, b.dash_token);
     if (!fam) return res.status(404).json({ error: 'family_not_found' });
     if (fam.is_demo) return res.status(403).json({ error: 'demo_read_only' });
 
@@ -41,7 +34,7 @@ module.exports = async (req, res) => {
 
     if (type === 'fridge') {
       if (!needMeal()) return;
-      await db.update('meals', `id=eq.${mealId}&family_id=eq.${fam.id}`, { status: 'in_fridge' });
+      await F.stashMeal(fam, mealId);   // التخزين = ثلاجة، stored_at الآن، cooked_at قبل ساعة، safe_until من قاعدة سلامة الغذاء
       return res.status(200).json({ ok: true });
     }
 
@@ -52,10 +45,24 @@ module.exports = async (req, res) => {
       let filter = `meal_id=eq.${mealId}`;
       const item = b.item == null ? '' : String(b.item);
       if (item) filter += UUID.test(item) ? `&id=eq.${item}` : `&name=eq.${q(str(item, 40) || '')}`;
-      await db.update('meal_items', filter, { outcome });
+      await db.update('meal_items', filter, { outcome, removed_at: new Date().toISOString() });
       await recompute(mealId, fam.id);
       return res.status(200).json({ ok: true });
     }
+
+    if (type === 'fridge_add') {
+      const r = await F.addItems(fam, b.items, b.source);
+      return r ? res.status(200).json({ ok: true, ...r }) : res.status(400).json({ error: 'no_valid_items' });
+    }
+    if (type === 'fridge_update') {
+      const r = await F.updateItems(fam, { target: str(b.target, 40), item_id: b.item_id, outcome: oneOf(b.outcome, F.OUTCOMES), move_to: oneOf(b.move_to, ['freezer']) });
+      return res.status(200).json({ ok: true, ...r });
+    }
+    if (type === 'fridge_list') {
+      const open = await F.loadOpen(fam.id);
+      return res.status(200).json({ ok: true, items: open.slice(0, 30).map(F.pub) });
+    }
+    if (type === 'fridge_alerts') return res.status(200).json({ ok: true, ...(await F.alerts(fam)) });
 
     if (type === 'item_correction') {
       if (!needMeal()) return;

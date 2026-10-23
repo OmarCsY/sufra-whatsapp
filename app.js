@@ -171,6 +171,7 @@ async function start(opts = {}) {
   note(API.ai
     ? '🔒 نسخة تجريبية من بوت سُفرة. أرسل صورة أكل حقيقية أو رسالة صوتية أو اكتب أي سؤال، والرد من محرك سُفرة.'
     : '🔒 نسخة تجريبية لتدفق بوت سُفرة على الواتساب. جرّب الأزرار، واضغط 📷 لإرسال صورة.');
+  if (!opts.fresh) await showAlerts();
   if (mem && (S.size || S.meals.length)) return returning();
   await welcome();
 }
@@ -546,6 +547,67 @@ async function monthly() {
   btns([['📲 أضف إنجازنا في لتدوم', async () => { await bot('هذي الخطوة الجاية في سُفرة 🤝 نقترح على لتدوم إن ملخص شهركم ينضاف تلقائيًا لحسابكم في تطبيق لتدوم، عشان يجتمع وعيكم وأثركم في مكان واحد.\n<span class="err">(ميزة مقترحة، ما هي مفعّلة في هذي النسخة)</span>'); await litadoomCard('وللحين تقدرون تحمّلون تطبيق لتدوم وتتابعون محتواه 👇'); btns([['🔁 ابدأ من جديد', () => start({ fresh: !S.tour })]]) }], ['🔁 ابدأ من جديد', () => start({ fresh: !S.tour })]]);
 }
 
+/* ---------- 🧊 الثلاجة الذكية (كلام حر أو صوت) + تنبيهات استباقية ---------- */
+const OUT_TXT = { eaten: 'انأكل 👏', half: 'انأكل نصه', thrown: 'انرمى (ولا يهمكم 🙏)', expired: 'انتهت مدته وتخلصنا منه 🙏' };
+const LOCAL_STATUS = { eaten: 'full', partly_eaten: 'half', thrown: 'thrown' };
+const hoursTxtB = h => { if (h <= 0) return 'انتهت مدته'; if (h < 1) return 'أقل من ساعة'; if (h < 24) return 'باقي ' + Math.round(h) + ' ساعة'; const d = Math.floor(h / 24); if (d >= 60) return 'باقي ' + Math.round(d / 30) + ' شهر'; const r = Math.round(h - d * 24); return 'باقي ' + (d === 1 ? 'يوم' : d === 2 ? 'يومين' : d + ' أيام') + (r && d < 7 ? ' و' + r + ' ساعة' : '') };
+const gramsB = g => (g >= 1000 ? kg(g / 1000) + ' كجم' : Math.round(g) + ' جم');
+const needFam = () => (!FAM || famOff() ? (bot('الثلاجة الذكية تحتاج حسابكم يتسجّل 🙏 جرّبوا بعد شوي.'), true) : false);
+async function fridgeAdd(a, src) {
+  if (needFam()) return;
+  const r = await track('fridge_add', { items: a.items, source: src });
+  if (!r || !r.items) return bot('ما قدرنا نسجّل الحين 🙏 جرّبوا بعد شوي.');
+  const lines = r.items.map(i => '• ' + esc(i.name) + ': ' + gramsB(i.grams) + (i.estimated ? ' (تقريبي)' : '') + ' في ' + (i.storage === 'freezer' ? 'الفريزر ❄️' : 'الثلاجة 🧊') + '، ' + (i.hours_left <= 0 ? '⚠️ مدته الآمنة انتهت' : i.storage === 'freezer' ? 'يحفظ ' + esc(i.range) : 'الأفضل تستخدمونه قبل <b>' + whenTxt(i.safe_until) + '</b>')).join('\n');
+  const est = r.items.some(i => i.estimated), srcs = [...new Set(r.items.map(i => i.source_name))].join('، ');
+  recordMeal({ items: r.items.map(i => ({ name: i.name, grams: i.grams, value_sar: i.value_sar, state: 'باقي', safe_until: i.safe_until })), total_value_sar: r.items.reduce((x, i) => x + (Number(i.value_sar) || 0), 0), servings_left: Math.round(r.items.reduce((x, i) => x + i.grams, 0) / 300), db_meal_id: r.meal_id, fridge: true });
+  await bot('تم ✅ سجلنا عندكم:\n' + lines + (est ? '\n\n💡 الوزن تقريبي، قولوا لنا الوزن الدقيق لو تبون نعدّله.' : '') + '\n<span class="hint">مدة الحفظ حسب: ' + esc(srcs) + '</span>');
+}
+async function fridgeUpdate(a) {
+  if (needFam()) return;
+  const r = await track('fridge_update', a);
+  if (!r) return bot('ما قدرنا نحدّث الثلاجة الحين 🙏 جرّبوا بعد شوي.');
+  if (r.none) return bot('ما لقينا ' + (a.target ? '«' + esc(a.target) + '» ' : 'الصنف ') + 'في ثلاجتكم 🤔 اكتبوا «وش عندي بالثلاجة» وأعرض لكم اللي مسجّل.');
+  if (r.ambiguous) {
+    await bot('عندكم أكثر من صنف بهالاسم، أي واحد تقصدون؟');
+    return btns(r.ambiguous.slice(0, 5).map(i => [(i.name + ' ' + gramsB(i.grams) + (i.dish_name && i.dish_name !== i.name ? ' · ' + i.dish_name : '')).slice(0, 40), () => fridgeUpdate({ item_id: i.item_id, outcome: a.outcome, move_to: a.move_to })]));
+  }
+  if (r.updated) {
+    const names = r.updated.map(i => '<b>' + esc(i.name) + '</b>').join(' و');
+    for (const [mid, st] of Object.entries(r.meal_statuses || {})) { const m = S.meals.find(x => x.db_meal_id === mid); if (m && LOCAL_STATUS[st]) m.status = LOCAL_STATUS[st] }
+    return bot('تم ✅ شلنا ' + names + ' من الثلاجة وسجلناه: ' + OUT_TXT[r.outcome]);
+  }
+  if (r.moved && r.moved.length) await bot('تم ✅ نقلنا ' + r.moved.map(i => '<b>' + esc(i.name) + '</b>').join(' و') + ' للفريزر ❄️، يحفظ ' + esc(r.moved[0].range) + '\n<span class="hint">المصدر: ' + esc(r.moved[0].source_name) + '</span>');
+  if (r.blocked && r.blocked.length) { await bot('⚠️ ' + r.blocked.map(i => '<b>' + esc(i.name) + '</b>').join(' و') + ' انتهت مدته الآمنة، ما ننصح بتجميده، والأفضل التخلص منه.'); btns([['تخلصنا منه', () => fridgeUpdate({ item_id: r.blocked[0].item_id, outcome: 'expired' })]]) }
+  if (!(r.moved && r.moved.length) && !(r.blocked && r.blocked.length)) await bot('هذا الصنف في الفريزر من قبل ❄️');
+}
+async function fridgeList() {
+  if (needFam()) return;
+  const r = await track('fridge_list');
+  if (!r) return bot('ما قدرنا نجيب الثلاجة الحين 🙏 جرّبوا بعد شوي.');
+  if (!r.items.length) return bot('ثلاجتكم فاضية عندنا 🧊 لو حطيتوا أكل قولوا لنا (مثل «حطيت كيلو رز بالثلاجة») أو صوّروه 📷');
+  await bot('🧊 <b>في ثلاجتكم الحين</b> (' + r.items.length + '):\n' + r.items.slice(0, 8).map(i => '• ' + esc(i.name) + ' ' + gramsB(i.grams) + (i.storage === 'freezer' ? ' ❄️' : '') + ' — ' + (i.hours_left < 12 ? '⏳ ' : '') + hoursTxtB(i.hours_left)).join('\n'), 700);
+  for (const i of r.items.slice(0, 4)) {
+    them('<b>' + esc(i.name) + '</b> · ' + gramsB(i.grams) + ' · ' + hoursTxtB(i.hours_left));
+    btns([['أكلناه', () => fridgeUpdate({ item_id: i.item_id, outcome: 'eaten' })], ['نصه', () => fridgeUpdate({ item_id: i.item_id, outcome: 'half' })], ['رميناه', () => fridgeUpdate({ item_id: i.item_id, outcome: 'thrown' })], ...(i.storage !== 'freezer' ? [['للفريزر', () => fridgeUpdate({ item_id: i.item_id, move_to: 'freezer' })]] : [])], true);
+  }
+  if (r.items.length > 4) { await bot('وفيه غيرها بلوحة أسرتكم 👇'); showDash() }
+}
+// تنبيهات استباقية عند فتح البوت. في واتساب الحقيقي هذي تكون رسائل تذكير مجدولة (Template messages) يرسلها الخادم في وقتها،
+// مو عند فتح المحادثة: هنا نحاكيها بفحص الثلاجة أول ما يفتح المستخدم البوت.
+async function showAlerts() {
+  if (S.tour || TOUR.on || !FAM || !API.ok) return;
+  const r = await Promise.race([track('fridge_alerts'), wait(3000).then(() => null)]);
+  if (!r) return;
+  for (const i of r.soon || []) {
+    await bot('⏰ انتبهوا: <b>' + esc(i.name) + '</b> ينتهي ' + whenTxt(i.safe_until) + '\n💡 ' + (i.suggestion ? 'اقتراح: <b>' + esc(i.suggestion) + '</b>' : 'الأفضل تطبخونه اليوم'), 600);
+    btns([['بنطبخه اليوم', async () => { track('reminder', { payload: { action: 'cook_today' } }); await bot('تمام 🌿 الله يعطيكم العافية، استفيدوا منه قبل ما ينتهي.') }], ['أكلناه', () => fridgeUpdate({ item_id: i.item_id, outcome: 'eaten' })], ['للفريزر', () => fridgeUpdate({ item_id: i.item_id, move_to: 'freezer' })]], true);
+  }
+  for (const i of r.expired || []) {
+    await bot('⚠️ <b>' + esc(i.name) + '</b> انتهت مدته الآمنة حسب ' + esc(i.source_name) + '، الأفضل التخلص منه', 600);
+    btns([['تخلصنا منه', () => fridgeUpdate({ item_id: i.item_id, outcome: 'expired' })]]);
+  }
+}
+
 /* ---------- 📊 أثري ---------- */
 async function impactCard() {
   const s = monthStats();
@@ -590,6 +652,10 @@ async function askAI(extra, hist) {
     else if (A === 'restart') { start({ fresh: !S.tour }) }
     else if (A === 'impact') { jump(); impactCard() }
     else if (A === 'dashboard') { jump(); dashCard() }
+    else if (A === 'fridge_add' && j.data) { jump(); await fridgeAdd(j.data, extra.audio ? 'voice' : 'chat') }
+    else if (A === 'fridge_update' && j.data) { jump(); await fridgeUpdate({ target: j.data.target, outcome: j.data.outcome, move_to: j.data.move_to }) }
+    else if (A === 'fridge_list') { jump(); await fridgeList() }
+    else if (A === 'safety_check') { if (j.sources && j.sources.length) linkBtns(j.sources.slice(0, 2).map(x => ['📎 المصدر: ' + x.name, x.url])) }
     else aiBtns(j.buttons);
     return j
   }

@@ -1,6 +1,9 @@
 // لوحة الأسرة: GET /api/dashboard?t=TOKEN. كل الأرقام من بيانات الأسرة الحقيقية، ولا نرجّع أي بيانات أسرة ثانية ولا معرّف الأسرة.
 const { limited } = require('./_util');
 const { db, ready, q, TOKEN } = require('./_db');
+const F = require('./_fridge');
+const { safety } = require('./_prices');
+const fsafe = require('./_foodsafety');
 
 const RICE = /رز|أرز|كبسة|مندي|مضغوط|برياني|مقلوبة|مجبوس/;
 const r1 = x => Math.round((Number(x) || 0) * 10) / 10;
@@ -19,12 +22,12 @@ module.exports = async (req, res) => {
     if (!fam) return res.status(404).json({ error: 'not_found' });
     const id = fam.id, now = Date.now();
     const since = new Date(now - 29 * 864e5).toISOString().slice(0, 10);
-    const sel = 'id,dish_name,status,total_grams,total_value_sar,created_at,closed_at,meal_items(name,grams,value_sar,safe_until,outcome,state)';
+    const sel = 'id,dish_name,status,total_grams,total_value_sar,created_at,closed_at,meal_items(id,name,grams,value_sar,safe_until,outcome,state,storage,food_category,cooked_at,stored_at,removed_at,safety_source)';
     const [stR, dailyR, mealsR, donsR, gathR, obsR] = await Promise.all([
       db.select('family_stats', `family_id=eq.${id}&limit=1`),
       db.select('family_daily', `family_id=eq.${id}&day=gte.${since}&order=day.asc`),
       db.select('meals', `family_id=eq.${id}&select=${encodeURIComponent(sel)}&order=created_at.desc&limit=300`),
-      db.select('donations', `family_id=eq.${id}&select=charity_name,charity_city,distance_km,grams,status,contact_method,cooked_window,created_at&order=created_at.desc&limit=20`),
+      db.select('donations', `family_id=eq.${id}&select=meal_id,charity_name,charity_city,distance_km,grams,status,contact_method,cooked_window,created_at&order=created_at.desc&limit=20`),
       db.select('gatherings', `family_id=eq.${id}&select=guests_min,guests_max,rice_kg,meat_kg,created_at&order=created_at.desc&limit=10`),
       fam.city && !fam.is_demo ? db.select('observatory_city', `city=eq.${q(fam.city)}&limit=1`) : Promise.resolve([]),
     ]);
@@ -44,18 +47,44 @@ module.exports = async (req, res) => {
     }
 
     const meals = (mealsR || []).map(m => ({ ...m, meal_items: m.meal_items || [] }));
+    const donByMeal = {}; (donsR || []).forEach(x => { if (x.meal_id) donByMeal[x.meal_id] = x });
+    // خط زمني للوجبة: تحليل ← ثلاجة ← (فريزر) ← أُكل / تبرع / انتهى
+    const timeline = m => {
+      const st = [{ step: 'analyzed', at: m.created_at }], its = m.meal_items;
+      const fr = its.filter(i => i.storage === 'fridge' && i.stored_at).map(i => Date.parse(i.stored_at)); if (fr.length) st.push({ step: 'fridge', at: new Date(Math.min(...fr)).toISOString() });
+      const fz = its.filter(i => i.storage === 'freezer' && i.stored_at).map(i => Date.parse(i.stored_at)); if (fz.length) st.push({ step: 'freezer', at: new Date(Math.max(...fz)).toISOString() });
+      if (m.closed_at) {
+        const exp = its.some(i => i.outcome === 'expired'), kind = m.status === 'donated' ? 'donated' : exp ? 'expired' : m.status === 'thrown' ? 'thrown' : m.status === 'partly_eaten' ? 'partly_eaten' : 'eaten';
+        st.push({ step: kind, at: m.closed_at, detail: kind === 'donated' && donByMeal[m.id] ? donByMeal[m.id].charity_name : undefined });
+      }
+      return st.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    };
     const recent = meals.slice(0, 10).map(m => ({
       dish_name: m.dish_name, created_at: m.created_at, status: m.status, total_grams: m.total_grams, total_value_sar: m.total_value_sar,
-      items: m.meal_items.map(i => ({ name: i.name, grams: i.grams, outcome: i.outcome })),
+      items: m.meal_items.map(i => ({ name: i.name, grams: i.grams, outcome: i.outcome, storage: i.storage })), timeline: timeline(m),
     }));
 
-    // في ثلاجتكم الحين: أصناف وجبات in_fridge اللي ما انتهى safe_until حقها، الأقرب انتهاءً أول
+    // في ثلاجتكم الحين: أصناف لها تخزين (ثلاجة/فريزر) وما صار لها مصير. الأقرب انتهاءً أول، والمنتهية تظهر بحالة «منتهي»
     const fridge = [];
-    for (const m of meals) if (m.status === 'in_fridge') for (const i of m.meal_items) {
-      const ts = i.safe_until ? Date.parse(i.safe_until) : NaN;
-      if (!isNaN(ts) && ts > now) fridge.push({ name: i.name, grams: i.grams, dish_name: m.dish_name, safe_until: i.safe_until, hours_left: r1((ts - now) / 36e5) });
+    for (const m of meals) for (const i of m.meal_items) {
+      if (!i.storage || i.outcome || i.removed_at) continue;
+      const su = i.safe_until || safety(i.name, { storage: i.storage, from: new Date(i.stored_at || m.created_at) }).safe_until;
+      const hl = Math.round((Date.parse(su) - now) / 36e4) / 10;
+      if (hl < -14 * 24) continue;
+      fridge.push(F.pub({ ...i, meal_id: m.id, dish_name: m.dish_name, safe_until: su, hours_left: hl }));
     }
-    fridge.sort((a, b) => a.hours_left - b.hours_left);
+    fridge.sort((a, b) => Date.parse(a.safe_until) - Date.parse(b.safe_until));
+
+    // «انتهى قبل ما ينأكل» هذا الشهر
+    const ex = []; for (const m of meals) for (const i of m.meal_items) if (i.outcome === 'expired' && now - Date.parse(i.removed_at || m.created_at) < 30 * 864e5) ex.push(i);
+    const exAgg = {}; ex.forEach(i => { exAgg[i.name] = (exAgg[i.name] || 0) + 1 });
+    const exTop = Object.entries(exAgg).sort((a, b) => b[1] - a[1])[0];
+    let expired_stats = { count: ex.length, grams: ex.reduce((s, i) => s + (Number(i.grams) || 0), 0), top: null, advice: null };
+    if (exTop) {
+      const cat = fsafe.categorize(exTop[0]), src = fsafe.SOURCES[cat.src];
+      expired_stats.top = { name: exTop[0], count: exTop[1] };
+      expired_stats.advice = { text: `${cat.label}: يجلس ${cat.fridge_range} في الثلاجة. قسّموا الكمية وجمّدوا اللي ما راح ينأكل خلال المدة.`, source_name: src.name, source_url: src.url };
+    }
 
     // أكثر 3 أصناف تزيد + توصية مقدار
     const agg = {}; let riceG = 0, nMeals = 0;
@@ -87,7 +116,7 @@ module.exports = async (req, res) => {
       family: { city: fam.city, household_size: fam.household_size, cook_language: fam.cook_language, is_demo: !!fam.is_demo },
       stats, carbon_kg: r1(stats.kg_saved * 2.5),
       saved_ratio: stats.kg_leftovers_total > 0 ? Math.min(1, stats.kg_saved / stats.kg_leftovers_total) : 0,
-      daily, meals: recent, fridge, top_items, maqdar, city_compare, badges,
+      daily, meals: recent, fridge, expired_stats, safety_rules: fsafe.RULES.map(r => ({ id: r.id, text: r.text, sources: r.src.map(s => ({ name: fsafe.SOURCES[s].name, url: fsafe.SOURCES[s].url, conservative: !fsafe.SOURCES[s].url })) })), top_items, maqdar, city_compare, badges,
       donations: donsR || [], gatherings: gathR || [], generated_at: new Date(now).toISOString(),
     });
   } catch (e) {

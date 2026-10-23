@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const { limited } = require('./_util');
 const { db, ready } = require('./_db');
-const { rule } = require('./_prices');
+const { rule, safety } = require('./_prices');
 
 const secretOk = given => {
   if (!process.env.SEED_SECRET) return false;
@@ -39,12 +39,15 @@ function build(now) {
   const iso = ms => new Date(ms).toISOString();
   const mk = (created, dish, items, status, closed, next) => {
     const total = items.reduce((s, i) => s + i.grams, 0), value = items.reduce((s, i) => s + i.value_sar, 0);
+    items.forEach(i => { if (i.outcome) i.removed_at = closed ? iso(closed) : null });
     meals.push({ meal: { dish_name: dish, source: 'demo', analyzed_via: 'demo', engine_meal_id: null, total_grams: total, total_value_sar: Math.round(value * 100) / 100, servings_left: Math.round(total / 300), next_day_suggestion: next || null, status, created_at: iso(created), closed_at: closed ? iso(closed) : null }, items });
     return meals.length - 1;
   };
-  const item = (name, grams, created, outcome) => {
-    const r = rule(name);
-    return { name, grams, value_sar: Math.round(grams * r.price / 10) / 100, safe_until: iso(created + r.days * D), state: 'باقي', confidence: Math.round((0.8 + R() * 0.15) * 100) / 100, outcome };
+  // مدة الحفظ والتصنيف والمصدر من قاعدة سلامة الغذاء (نفس منطق البوت)
+  const item = (name, grams, created, outcome, storage = 'fridge') => {
+    const r = rule(name), s = safety(name, { storage, from: new Date(created) });
+    return { name, grams, value_sar: Math.round(grams * r.price / 10) / 100, safe_until: s.safe_until, state: 'باقي', confidence: Math.round((0.8 + R() * 0.15) * 100) / 100, outcome,
+      storage, food_category: s.food_category, cooked_at: iso(created - H), stored_at: iso(created), safety_source: s.safety_source, removed_at: null };
   };
 
   const potDays = POTS.map(p => p.daysAgo);
@@ -62,6 +65,10 @@ function build(now) {
       mk(created, tpl.dish, items, MEAL_STATUS[outcome], created + (8 + R() * 22) * H, tpl.next);
     }
   }
+  // أكل انتهت مدته قبل ما ينأكل (يظهر في مؤشر «انتهى قبل ما ينأكل»)
+  for (const [d, dish, list] of [[12, 'صالونة', [['صالونة', 420]]], [9, 'سلطة', [['سلطة', 260]]]]) {
+    const created = at(d, 14); mk(created, dish, list.map(([n, g]) => item(n, g, created, 'expired')), 'thrown', created + 3 * D, null);
+  }
   for (const p of POTS) {
     const created = at(p.daysAgo, 16);
     const items = p.items.map(([n, g]) => item(n, g, created, 'donated'));
@@ -72,6 +79,8 @@ function build(now) {
 
   // اليوم: وجبتان في الثلاجة (واحدة قريبة من انتهاء الصلاحية عشان يظهر التحذير)
   const fridge = (agoH, dish, list) => { const created = now - agoH * H; const items = list.map(([n, g, leftH]) => ({ ...item(n, g, created, null), safe_until: iso(now + leftH * H) })); mk(created, dish, items, 'in_fridge', null, 'كبسة باقية بالخضار'); };
+  // مرقوق بالفريزر (فيه آيقونة الفريزر وعدّاد بالأيام)
+  { const created = now - 5 * D; mk(created, 'مرقوق', [item('مرقوق', 1800, created, null, 'freezer')], 'in_fridge', null, null); }
   fridge(22, 'صالونة', [['رز', 300, 9], ['صالونة', 380, 50]]);
   fridge(4, 'كبسة دجاج', [['رز', 520, 20], ['دجاج', 280, 68]]);
   return { meals, donations, gatherings };
