@@ -38,7 +38,7 @@ let last = '';
 function day(t) { last = ''; chat.appendChild(el(`<div class="day">${t}</div>`)); scroll() }
 function note(t) { last = ''; chat.appendChild(el(`<div class="note">${t}</div>`)); scroll() }
 function me(html, cls = '') { const f = last !== 'me' ? ' first' : ''; last = 'me'; const n = el(`<div class="row me${f}"><div class="b ${cls}">${html}<span class="t">${now()} ${TICK}</span></div></div>`); chat.appendChild(n); ding(660); scroll(); setTimeout(markRead, 1200); return n }
-function them(html) { const f = last !== 'them' ? ' first' : ''; last = 'them'; chat.appendChild(el(`<div class="row them${f}"><div class="b">${html}<span class="t">${now()}</span></div></div>`)); remember('model', strip(html)); ding(980); scroll() }
+function them(html) { const f = last !== 'them' ? ' first' : ''; last = 'them'; chat.appendChild(el(`<div class="row them${f}"><div class="b">${html}<span class="t">${now()}</span></div></div>`)); remember('model', strip(html)); ding(980); scroll(); memSet() }
 let PEND = null; // الخيارات المعلّقة: تُقبل بالضغط أو بالكتابة الحرة
 function btns(list, inline, ai) {
   const w = el(`<div class="btns${inline ? ' inline' : ''}" style="--n:${list.filter(x => x[0]).length}"></div>`);
@@ -117,30 +117,86 @@ function monthStats() {
   return { n: S.meals.length, saved, val, don };
 }
 
-async function start() {
-  H = []; S = { size: '', lang: 'عربي', meal: null, meals: [] }; chat.innerHTML = ''; last = '';
+/* ---------- الذاكرة على نفس الجوال (localStorage، كل عملية داخل try/catch) ---------- */
+const MEM_KEY = 'sufra.mem.v1';
+function memGet() { try { return JSON.parse(localStorage.getItem(MEM_KEY) || 'null') } catch (e) { return null } }
+function memSet() {
+  if (S.tour) return; // الجولة ما تكتب في الذاكرة
+  try { localStorage.setItem(MEM_KEY, JSON.stringify({ size: S.size, lang: S.lang, langSet: !!S.langSet, meals: S.meals.filter(m => !m.demo).slice(-40), city: HERE && HERE.city ? HERE : null })) } catch (e) {}
+}
+function memClear() { try { localStorage.removeItem(MEM_KEY) } catch (e) {} }
+
+async function start(opts = {}) {
+  if (opts.fresh) memClear();
+  const mem = opts.fresh ? null : memGet();
+  H = []; S = { size: '', lang: 'عربي', meal: null, meals: [] }; HERE = null; NEAR = []; NI = 0; PEND = null; chat.innerHTML = ''; last = '';
+  if (mem) {
+    S.size = mem.size || ''; S.lang = mem.lang || 'عربي'; S.langSet = !!mem.langSet;
+    S.meals = Array.isArray(mem.meals) ? mem.meals : []; S.meal = S.meals[S.meals.length - 1] || null;
+    if (mem.city && mem.city.city) HERE = mem.city;
+  }
   await Promise.race([healthP, wait(1500)]);
   day('اليوم');
   note(API.ai
     ? '🔒 نسخة تجريبية من بوت سُفرة. أرسل صورة أكل حقيقية أو رسالة صوتية أو اكتب أي سؤال، والرد من محرك سُفرة.'
     : '🔒 نسخة تجريبية لتدفق بوت سُفرة على الواتساب. جرّب الأزرار، واضغط 📷 لإرسال صورة.');
+  if (mem && (S.size || S.meals.length)) return returning();
   await welcome();
 }
+async function returning() {
+  const n = S.meals.length;
+  await bot('هلا فيك من جديد 🌷' + (n ? `\nعندكم <b>${n}</b> ${n === 1 ? 'وجبة' : 'وجبات'} في السجل.` : ''), 700);
+  if (!S.size) return askSize();
+  if (!S.langSet) return askLang();
+  const m = S.meal, open = m && !m.status && !m.donated;
+  await bot('كمّلوا من حيث وقفنا 👇 صوّروا بواقي وجبتكم الجاية 📷، أو اكتبوا «عزيمة»، أو اسألوا «وش أثري؟»');
+  btns([['📷 أرسل صورة', openSheet], ['📊 أثري', impactCard], ...(open ? [['🍽️ وش صار على آخر وجبة؟', closeQ]] : [])]);
+}
 async function welcome() {
-  await bot('يا هلا ومرحبا بك في <b>سُفرة</b> 🌷\nنساعدك تحفظ نعمة بيتك وتوفّر، بصورة لسفرتكم بعد الأكل.\n\nعشان نضبط كميات الطبخ بدقة، <b>كم عدد أفراد البيت؟</b>\n<span class="hint">اختاروا أو اكتبوا العدد</span>', 700);
-  btns([['1 – 3', () => size('1-3')], ['4 – 6', () => size('4-6')], ['7 أو أكثر', () => size('7+')], ['', (t, n) => n ? size(String(n)) : size(t), /^\D{0,12}(\d+|[٠-٩]+)|^(نحن |احنا |إحنا )?(واحد|اثنين|ثنين|ثلاث|أربع|اربع|خمس|ست|سبع|ثمان|تسع|عشر)[ةه]?(\s|$)/, 'size']], true);
+  await askSize(true);
   if (!TOUR.on) { const b = el('<button class="skip tourbtn">🎬 جولة سريعة</button>'); b.onclick = () => { b.remove(); startTour() }; chat.appendChild(b); scroll() }
 }
-const WORDN = { 'واحد': 1, 'اثنين': 2, 'ثنين': 2, 'ثلاث': 3, 'أربع': 4, 'اربع': 4, 'خمس': 5, 'ست': 6, 'سبع': 7, 'ثمان': 8, 'تسع': 9, 'عشر': 10 };
+async function askSize(full) {
+  await bot((full ? 'يا هلا ومرحبا بك في <b>سُفرة</b> 🌷\nنساعدك تحفظ نعمة بيتك وتوفّر، بصورة لسفرتكم بعد الأكل.\n\n' : '') + 'عشان نضبط كميات الطبخ بدقة، <b>كم عدد أفراد البيت؟</b>\n<span class="hint">اختاروا أو اكتبوا العدد</span>', 700);
+  btns([['1 – 3', () => size('1-3')], ['4 – 6', () => size('4-6')], ['7 أو أكثر', () => size('7+')], ['', (t, n) => n ? size(String(n)) : size(t), /\d|[٠-٩]|واحد|اثنين|ثنين|ثلاث|ربع|خمس|ست|سبع|ثمان|تسع|عشر|درزن/, 'size']], true);
+}
 const LANGS = [['عربي', /عرب|arab/i], ['English', /english|انجل|إنجل|انقل|إنقل/i], ['Tagalog', /tagalog|filip|فلبين|تاغالوغ|تقالوق/i], ['اردو', /urdu|ارد|أورد|اورد|باكستان/i], ['हिन्दी', /hindi|هند/i], ['বাংলা', /bangla|bengal|بنغال/i], ['Indonesia', /indones|اندونيس|إندونيس/i]];
 async function size(s) {
   if (/^\d+$/.test(s)) { const n = parseInt(s, 10); S.size = n + (n === 1 ? ' فرد' : ' أفراد') } else S.size = s;
-  await bot('تم 👌 وش لغة الشخص اللي يطبخ عندكم غالبًا؟\n<span class="hint">عشان نرسل له التعليمات بلغته. اختاروا أو اكتبوا اللغة</span>');
+  await askLang(true);
+}
+async function askLang(first) {
+  await bot((first ? 'تم 👌 ' : '') + 'وش لغة الشخص اللي يطبخ عندكم غالبًا؟\n<span class="hint">عشان نرسل له التعليمات بلغته. اختاروا أو اكتبوا اللغة</span>');
   btns([['عربي', () => lang('عربي')], ['English', () => lang('English')], ['Tagalog', () => lang('Tagalog')], ['اردو', () => lang('اردو')], ['', t => lang(t), /^(عرب|arab|english|انجل|إنجل|tagalog|filip|فلبين|urdu|ارد|أورد|اورد|hindi|هند|bangla|bengal|بنغال|indones|اندونيس|إندونيس|الفلبيني|الهندي|الانجليزي|الإنجليزي|العربي|الأوردو|الاوردو)/i, 'lang']], true)
 }
 async function lang(l) {
-  const hit = LANGS.find(([n, re]) => n === l || re.test(l)); S.lang = hit ? hit[0] : String(l).trim().slice(0, 20);
+  const hit = LANGS.find(([n, re]) => n === l || re.test(l)); S.lang = hit ? hit[0] : String(l).trim().slice(0, 20); S.langSet = true;
   await bot('ممتاز، جاهزين ✅\nبعد الأكل صوّروا <b>البواقي</b> وأرسلوها هنا 📷\n<span style="color:#667781;font-size:13px">' + (API.ai ? '(تقدرون بعد تكتبون أو ترسلون رسالة صوتية 🎙️ بأي سؤال، أو تكتبون «عزيمة» لو عندكم مناسبة)' : '(اضغط 📷 تحت، أو اكتبوا «عزيمة» لو عندكم مناسبة)') + '</span>');
+}
+
+/* ---------- الأرقام بالكلام: «خمسة»، «عشرين»، «ثلاثين تقريبًا»، «درزن» ---------- */
+const nz = w => String(w).replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+const AN_U = { 'واحد': 1, 'وحده': 1, 'اثنين': 2, 'اثنان': 2, 'ثنين': 2, 'ثلاثه': 3, 'ثلاث': 3, 'اربعه': 4, 'اربع': 4, 'خمسه': 5, 'خمس': 5, 'سته': 6, 'ست': 6, 'سبعه': 7, 'سبع': 7, 'ثمانيه': 8, 'ثمان': 8, 'تسعه': 9, 'تسع': 9, 'عشره': 10, 'عشر': 10, 'احدعشر': 11, 'اثنعشر': 12, 'درزن': 12, 'دزينه': 12 };
+const AN_T = { 'عشرين': 20, 'ثلاثين': 30, 'اربعين': 40, 'خمسين': 50, 'ستين': 60, 'سبعين': 70, 'ثمانين': 80, 'تسعين': 90 };
+// الرسالة كلها رقم (بالأرقام أو بالكلام) مع كلمات حشو بسيطة، بدون سؤال أو مدى («بين 20 و30») ← نعالجها محليًا بدون الذكاء الاصطناعي
+const FILL = /^(تقريبا|ضيف|ضيوف|فرد|افراد|شخص|اشخاص|حوالي|يمكن|نفر|بالبيت|البيت|في|احنا|نحن|عدد|نص|ميه|مئه|مايه|ميتين|مئتين)$/;
+function onlyNumberish(t) {
+  const toks = nz(t).split(/[\s،,.؟?!]+/).filter(Boolean); if (!toks.length || toks.length > 5) return false;
+  return toks.every(w => { const v = /^و./.test(w) && !AN_U[w] && !AN_T[w] ? w.slice(1) : w; return /[\d٠-٩۰-۹]/.test(w) || AN_U[v] || AN_T[v] || FILL.test(v) });
+}
+function parseArNum(t) {
+  const d = num(t); if (d != null) return d;
+  const s = nz(t);
+  if (/نص\s*(ميه|مئه|مايه)/.test(s)) return 50;
+  const toks = s.split(/[\s،,.؟?!]+/).filter(Boolean).map(w => (/^و./.test(w) && !AN_U[w] && !AN_T[w] ? w.slice(1) : w));
+  let total = 0, prev = '';
+  for (const w of toks) {
+    if (AN_T[w]) { if (prev === 't') return null; total += AN_T[w]; prev = 't' }
+    else if (AN_U[w]) { total += AN_U[w]; prev = 'u' }
+    else if (/^(ميه|مئه|مايه)$/.test(w)) { total = (total >= 1 && total <= 9 ? total : 1) * 100; prev = 'h' }
+    else if (/^(ميتين|مئتين)$/.test(w)) { total += 200; prev = 'h' }
+  }
+  return total > 0 ? total : null;
 }
 
 /* ---------- الصور ---------- */
@@ -215,8 +271,8 @@ function mealSummary(m) { if (!m || !m.items) return ''; return m.items.map(i =>
 
 async function showResult(j) {
   if (!j || !Array.isArray(j.items) || !j.items.length) { them('ما قدرنا نتعرف على أكل في الصورة 🤔\nصوّروا الصحن كامل من فوق وبإضاءة واضحة، وجربوا مرة ثانية.'); return }
-  recordMeal(j);
-  const lines = j.items.map(i => `• ${esc(i.name)}${i.state === 'سليم' ? ' (ما انلمس)' : ''}: حوالي <b>${Math.round(i.grams)} جم</b> (${SAR(i.value_sar)} ريال)`).join('\n');
+  const m = recordMeal(j);
+  const lines = j.items.map(i => `• ${esc(i.name)}${i.state === 'سليم' ? ' (ما انلمس)' : ''}${lowConf(i) ? ' (تقديري)' : ''}: حوالي <b>${Math.round(i.grams)} جم</b> (${SAR(i.value_sar)} ريال)`).join('\n');
   const soon = j.items.map(i => i.safe_until).filter(Boolean).sort()[0];
   const sv = Number(j.servings_left) || 0;
   let h = (j.dish_name ? `🍽️ <b>${esc(j.dish_name)}</b>\n` : '') + `بالعافية عليكم 🍽️\n<b>رصدنا في السفرة:</b>\n${lines}\n\n💰 إجمالي القيمة: <b>${SAR(j.total_value_sar)} ريال</b>\n👥 تكفي تقريبًا: <b>${sv >= 1 ? sv + (sv === 1 ? ' شخص' : sv <= 10 ? ' أشخاص' : ' شخص') : 'أقل من حصة'}</b>`;
@@ -224,8 +280,41 @@ async function showResult(j) {
   if (j.next_day_suggestion) h += `\n\n💡 اقتراح بكرة: <b>${esc(j.next_day_suggestion)}</b>`;
   them(h);
   const tg = mealG(j), allSalim = j.items.every(i => i.state === 'سليم'), forced = S.forceDonate; S.forceDonate = false;
-  if (j.charity_suggestion || tg >= 3000 || forced || (allSalim && tg >= 1500)) { await bot('باقي عندكم كمية كبيرة 🍲\nهل هذا الأكل <b>تقدّم على السفرة</b>، ولا باقي في القدور ما أحد أكل منه؟', 900); btns([['باقي في القدور', served, /^لا|باقي|بالقدور|في القدور|ما تقد|ما انقد|محد|ما أحد|ما احد|ما أكل منه|ما اكل منه|ما انلمس/], ['تقدّم على السفرة', homePlan, /^(نعم|ايه|إيه|اي|أي)(\s|$)|^تقد|انقد|قدمناه|قدّمناه|حطيناه على|أكلوا منه|اكلوا منه/]]) }
-  else btns([['دخل الثلاجة ✅', fridge]]);
+  m.askDonate = !!(j.charity_suggestion || tg >= 3000 || forced || (allSalim && tg >= 1500));
+  return nextStep(m);
+}
+// الخطوة التالية بعد عرض النتيجة: سؤال التبرع (كمية كبيرة أو أصناف ما انلمست) أو الثلاجة، مع زر التصحيح لو فيه صنف تقديري
+async function nextStep(m) {
+  const fix = m.items.some(lowConf) ? [['✏️ تصحيح الأصناف', correctItems]] : [];
+  if (m.askDonate) { await bot('باقي عندكم كمية كبيرة 🍲\nهل هذا الأكل <b>تقدّم على السفرة</b>، ولا باقي في القدور ما أحد أكل منه؟', 900); btns([['باقي في القدور', served, /^لا|باقي|بالقدور|في القدور|ما تقد|ما انقد|محد|ما أحد|ما احد|ما أكل منه|ما اكل منه|ما انلمس/], ['تقدّم على السفرة', homePlan, /^(نعم|ايه|إيه|اي|أي)(\s|$)|^تقد|انقد|قدمناه|قدّمناه|حطيناه على|أكلوا منه|اكلوا منه/], ...fix]) }
+  else btns([['دخل الثلاجة ✅', fridge], ...fix]);
+}
+
+/* ---------- تصحيح الأصناف (الثقة أقل من 0.6) ---------- */
+const lowConf = i => i.confidence != null && isFinite(i.confidence) && Number(i.confidence) < 0.6;
+async function correctItems() {
+  const m = S.meal; if (!m) return;
+  const low = m.items.filter(lowConf);
+  return fixNext(m, low.length ? low : m.items.slice(0, 1), 0);
+}
+async function fixNext(m, list, k) {
+  if (k >= list.length) return fixDone(m);
+  const it = list[k];
+  await bot(`وش الصنف الصحيح لـ<b>${esc(it.name)}</b>؟\n<span class="hint">اكتبوا اسمه (مثال: «مرقوق»)</span>`);
+  btns([['✅ هو صح', () => { it.confidence = 1; return fixNext(m, list, k + 1) }], ['', async t => { await renameItem(m, it, t); return fixNext(m, list, k + 1) }, /.+/, 'name']]);
+}
+async function renameItem(m, it, t) {
+  const name = String(t || '').trim().replace(/^(هو|هذا|هذي|الصنف|اسمه|الصحيح)\s+/, '').slice(0, 40);
+  if (!name) return;
+  const old = it.name; it.name = name; it.confidence = 1;
+  if (m.dish_name && m.dish_name.includes(old)) m.dish_name = null;
+  if (API.ok) { try { const r = await api('/api/analyze', { action: 'price', items: [{ name, grams: it.grams }] }, 15000); const p = r && r.items && r.items[0]; if (p) { it.name = p.name || name; it.value_sar = p.value_sar; it.safe_until = p.safe_until } } catch (e) {} }
+  m.total_value_sar = m.items.reduce((s, i) => s + (Number(i.value_sar) || 0), 0);
+}
+async function fixDone(m) {
+  const lines = m.items.map(i => `• ${esc(i.name)}: حوالي <b>${Math.round(i.grams)} جم</b> (${SAR(i.value_sar)} ريال)`).join('\n');
+  await bot(`تم التعديل ✅ الأصناف الحين:\n${lines}\n\n💰 إجمالي القيمة: <b>${SAR(m.total_value_sar)} ريال</b>`);
+  return nextStep(m);
 }
 
 /* سيناريو احتياطي بدون اتصال */
@@ -324,8 +413,24 @@ let HERE = null, NEAR = [], NI = 0;
 const km = (a, b, c, d) => { const r = x => x * Math.PI / 180, R = 6371; const h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)) };
 function qtyTxt() { const m = S.meal; if (!m || !m.items || !m.items.length) return ''; return m.items.map(i => (i.grams >= 1000 ? (Math.round(i.grams / 100) / 10) + ' كجم ' : Math.round(i.grams) + ' جم ') + i.name).join(' + ') }
 async function served() {
-  await bot('ما شاء الله 👏 هذا الأكل يصلح للتبرع ويوصل لمستحقيه.', 800);
-  btns([['📍 أقرب جمعية لي', findCharity, /جمعي|تبرع|أتبرع|اتبرع|ايه|نعم/], ['🧊 خطة حفظ في البيت', homePlan, /حفظ|البيت|الثلاج/]]);
+  await bot('ما شاء الله 👏 الأكل اللي باقي في القدور تقدرون تتبرعون فيه ويوصل لمستحقيه.', 800);
+  btns([['📍 أقرب جمعية لي', () => charityStart(), /جمعي|تبرع|أتبرع|اتبرع|ايه|نعم/], ['🧊 خطة حفظ في البيت', homePlan, /حفظ|البيت|الثلاج/]]);
+}
+// سلامة التبرع: نسأل متى انطبخ الأكل قبل ما نطلع الجمعية
+async function charityStart(city) {
+  const m = S.meal, go = () => city ? cityTyped(city) : findCharity();
+  if (m && m.ageOk) return go();
+  await bot('قبل ما نطلع لكم الجمعية: <b>متى انطبخ الأكل؟</b>\n<span class="hint">عشان نتأكد إنه يصلح للتبرع</span>');
+  btns([['أقل من ساعتين', () => ageOk(m, go, 'fresh'), /أقل|اقل|نص ساع|دقايق|دقيقة|توه|قبل شوي/], ['من ساعتين لـ4', () => ageOk(m, go, 'mid'), /ساعتين|ثلاث ساعات|3 ساعات|٣ ساعات/], ['أكثر من 4 ساعات', () => ageLate(m, go), /أكثر|اكثر|أربع|اربع|4 ساعات|من الصبح|أمس|امس|بالليل/]]);
+}
+async function ageOk(m, go, k) {
+  if (m) m.ageOk = true;
+  if (k === 'mid') await bot('تمام 👌 بس تحركوا بسرعة: الأفضل يوصل للجمعية خلال ساعتين، وخلّوه مغطى.', 900);
+  return go();
+}
+async function ageLate(m, go) {
+  await bot('أكثر من 4 ساعات 🤔 وين محفوظ الأكل الحين؟');
+  btns([['🧊 في الثلاجة', () => ageOk(m, go, 'fridge'), /ثلاج|مبرد|فريزر/], ['🌡️ برا الثلاجة', () => bot('الله يعافيكم 🙏 ما نقترح التبرع بأكل بقي برا الثلاجة أكثر من 4 ساعات، لسلامة اللي بيستلمه.\nلو شميتوا ريحة أو تغيّر شكله تخلصوا منه في كيس محكم مفصول عن البلاستيك والكرتون. والمرة الجاية خلّوا الباقي في القدور مغطى وبرّدوه بسرعة عشان يصلح للتبرع 🌿', 1000), /برا|بره|خارج|طاولة|الجو|حار/]]);
 }
 async function findCharity() {
   await bot('شاركونا موقعكم عشان نطلع لكم <b>أقرب جمعية حفظ نعمة</b> وطريقة التواصل معها 📍\n<span class="hint">أو اكتبوا اسم مدينتكم</span>');
@@ -393,7 +498,15 @@ async function monthly() {
   if (!ms.n) { await bot('ما عندنا وجبات محللة للحين 📷 أرسلوا لنا صور وجباتكم أول، وبعدها نطلع لكم ملخص شهركم.'); return btns([['📷 أرسل صورة', openSheet]]) }
   const sk = ms.saved / 1000;
   await bot(`📊 <b>ملخص شهركم مع سُفرة</b>\n🍽️ وجبات حللناها: <b>${ms.n}</b>\n💰 وفّرتوا: <b>${SAR(ms.val)} ريال</b>\n🌿 أنقذتوا: <b>${kg(sk)} كجم</b> أكل\n🤝 تبرعتوا: <b>${kg(ms.don / 1000)} كجم</b> لجمعية\n\n📈 توقّع لو استمر نفس النمط شهر كامل: تقريبًا <b>${kg(sk * 4.3)} كجم</b> و<b>${SAR(ms.val * 4.3)} ريال</b>\n🌍 تقريبًا <b>${kg(sk * 2.5)} كجم</b> كربون تجنبتوه (تقديري)` + (sk ? '\n\nكل لقمة تفرق 🌿' : '\n\nما سجلنا أكل أنقذتوه للحين: لما تقولون لنا إنه أُكل أو تبرعتوا فيه ينحسب.'));
-  btns([['📲 أضف إنجازنا في لتدوم', async () => { await bot('هذي الخطوة الجاية في سُفرة 🤝 نقترح على لتدوم إن ملخص شهركم ينضاف تلقائيًا لحسابكم في تطبيق لتدوم، عشان يجتمع وعيكم وأثركم في مكان واحد.\n<span class="err">(ميزة مقترحة، ما هي مفعّلة في هذي النسخة)</span>'); await litadoomCard('وللحين تقدرون تحمّلون تطبيق لتدوم وتتابعون محتواه 👇'); btns([['🔁 ابدأ من جديد', start]]) }], ['🔁 ابدأ من جديد', start]]);
+  btns([['📲 أضف إنجازنا في لتدوم', async () => { await bot('هذي الخطوة الجاية في سُفرة 🤝 نقترح على لتدوم إن ملخص شهركم ينضاف تلقائيًا لحسابكم في تطبيق لتدوم، عشان يجتمع وعيكم وأثركم في مكان واحد.\n<span class="err">(ميزة مقترحة، ما هي مفعّلة في هذي النسخة)</span>'); await litadoomCard('وللحين تقدرون تحمّلون تطبيق لتدوم وتتابعون محتواه 👇'); btns([['🔁 ابدأ من جديد', () => start({ fresh: !S.tour })]]) }], ['🔁 ابدأ من جديد', () => start({ fresh: !S.tour })]]);
+}
+
+/* ---------- 📊 أثري ---------- */
+async function impactCard() {
+  const s = monthStats();
+  if (!s.n) { await bot('ما عندنا وجبات محللة للحين 📷 أرسلوا أول صورة وبنحسب لكم أثركم.'); return btns([['📷 أرسل صورة', openSheet]]) }
+  const sk = s.saved / 1000;
+  await bot(`📊 <b>أثركم مع سُفرة</b>\n🍽️ وجبات حللناها: <b>${s.n}</b>\n🌿 أنقذتوا: <b>${kg(sk)} كجم</b> أكل\n💰 وفّرتوا: <b>${SAR(s.val)} ريال</b>\n🤝 تبرعتوا: <b>${kg(s.don / 1000)} كجم</b> لجمعية\n🌍 تقريبًا <b>${kg(sk * 2.5)} كجم</b> كربون تجنبتوه (تقديري)`);
 }
 
 /* ---------- لتدوم ---------- */
@@ -409,7 +522,8 @@ async function litadoomCard(intro) {
 }
 
 /* ---------- الذكاء الاصطناعي ---------- */
-function profile() { const q = PEND ? [...chat.querySelectorAll('.row.them .b')].pop() : null; return { size: S.size, lang: S.lang, meal: mealSummary(S.meal), city: (HERE && HERE.city) || '', charity: NEAR[NI] ? 'جمعية ' + NEAR[NI].name + ' في ' + NEAR[NI].city : '', pending: q ? strip(q.innerHTML).slice(0, 200) : '', options: PEND && !PEND.ai ? PEND.labels.map(x => x[0]) : [], kind: PEND && PEND.free ? PEND.free[3] : '' } }
+function profile() { const q = PEND ? [...chat.querySelectorAll('.row.them .b')].pop() : null; return { size: S.size, lang: S.lang, meal: mealSummary(S.meal), city: (HERE && HERE.city) || '', charity: NEAR[NI] ? 'جمعية ' + NEAR[NI].name + ' في ' + NEAR[NI].city : '', pending: q ? strip(q.innerHTML).slice(0, 200) : '', stats: statsLine(), options: PEND && !PEND.ai ? PEND.labels.map(x => x[0]) : [], kind: PEND && PEND.free ? PEND.free[3] : '' } }
+function statsLine() { const s = monthStats(); return s.n ? `${s.n} وجبات محللة، ${kg(s.saved / 1000)} كجم منقذة، ${SAR(s.val)} ريال موفّرة، ${kg(s.don / 1000)} كجم متبرع بها` : 'لا توجد وجبات محللة بعد' }
 function aiBtns(list) {
   list = (list || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 3); if (!list.length) return;
   btns(list.map(b => [b, () => (/صور|📷|كاميرا/.test(b) && !/\?|؟/.test(b)) ? openSheet() : text(b, true)]), false, true);
@@ -422,11 +536,12 @@ async function askAI(extra, hist) {
     const A = j.action, jump = () => { if (PEND) PEND.close() };
     if (A === 'litadoom') { const pf = platform(); linkBtns(pf === 'desktop' ? [['🍎 App Store', LTD.ios], ['🤖 Google Play', LTD.android], ['📱 AppGallery', LTD.huawei], ['🌐 موقع لتدوم', LTD.site]] : [['⬇️ حمّل تطبيق لتدوم', LTD[pf]], ['🌐 موقع لتدوم', LTD.site]]) }
     else if (A === 'choose' && p && !p.ai && p.labels[(j.choice || 0) - 1]) { const o = p.labels[j.choice - 1]; p.close(); o[1]() }
-    else if (A === 'answer' && p && p.free) { p.close(); p.free[1](j.value || extra.text || '', j.number, j.number2) }
-    else if (A === 'charity') { jump(); if (j.city) { await cityTyped(j.city) } else { await wait(300); findCharity() } }
+    else if (A === 'answer' && p && p.free) { const raw = j.value || extra.text || '', n = j.number ?? parseArNum(raw) ?? parseArNum(extra.text || ''); p.close(); p.free[1](raw, n, j.number2) }
+    else if (A === 'charity') { jump(); await wait(300); charityStart(j.city) }
     else if (A === 'gathering') { jump(); await wait(300); j.number ? gq(j.number, j.number2 || j.number) : gath() }
     else if (A === 'photo') { openSheet() }
-    else if (A === 'restart') { start() }
+    else if (A === 'restart') { start({ fresh: !S.tour }) }
+    else if (A === 'impact') { jump(); impactCard() }
     else aiBtns(j.buttons);
     return j
   }
@@ -437,8 +552,9 @@ async function text(t, already) {
   const hist = already ? H.slice(0, -1) : H.slice();
   if (!already) { me(esc(t)); remember('user', t) }
   // مع الذكاء الاصطناعي: النموذج يفهم القصد بأي صيغة ويحدد الإجراء (أزرار، إجابة، تبرع، عزيمة...). الأرقام المجردة فقط تُعالج محليًا.
-  const bare = /^\s*[\d٠-٩]+\s*$/.test(t);
-  if (API.ai && !(bare && PEND && PEND.free)) { if (await aiTry(t, hist, 0)) return }
+  const nq = PEND && PEND.free && ['size', 'guests'].includes(PEND.free[3]) && onlyNumberish(t) ? parseArNum(t) : null;
+  if (nq != null) { const p = PEND; p.close(); return p.free[1](t, nq) }
+  if (API.ai) { if (await aiTry(t, hist, 0)) return }
   localRoute(t);
 }
 // نداء الذكاء الاصطناعي مع حماية الضغط: أول فشل ← رسالة لطيفة وزر إعادة، ثاني فشل ← القواعد المحلية
@@ -455,11 +571,12 @@ function localRoute(t) {
   // احتياطي بدون اتصال: قواعد نصية
   if (/لتدوم|لتدووم|litadoom/i.test(t) && /رابط|تطبيق|حمل|حمّل|تحميل|نزل|نزّل|موقع|لينك|ابليكيشن|app/i.test(t)) return litadoomCard();
   if (PEND) {
-    const n = num(t) ?? Object.entries(WORDN).sort((a, b) => b[0].length - a[0].length).find(([w]) => new RegExp('(^|\\s)' + w + '[ةه]?(\\s|$)').test(t))?.[1] ?? null;
+    const n = parseArNum(t);
     for (const o of PEND.opts) if (o.re.test(t)) { const p = PEND; p.close(); return o.fn(t, n) }
   }
   { const c = /(أنا|انا|احنا|إحنا|ساكن|ساكنين|نسكن|من)\s+(في|ب|بـ)?\s*/.test(t) && CITIES.find(c => c[3].test(t)); if (c) HERE = { lat: c[1], lng: c[2], city: c[0] } }
-  if (/(أقرب|اقرب|وين|ابي|أبي|ابغى|أبغى).{0,12}جمعي|أبي أتبرع|ابي اتبرع|ابغى اتبرع|أبغى أتبرع/.test(t)) return findCharity();
+  if (/أثري|اثري|كم وفر|وفّرت|وفرت|ملخصي|إنجازي|انجازي/.test(t)) return impactCard();
+  if (/(أقرب|اقرب|وين|ابي|أبي|ابغى|أبغى).{0,12}جمعي|أبي أتبرع|ابي اتبرع|ابغى اتبرع|أبغى أتبرع/.test(t)) return charityStart();
   if (/عزيم|ضيوف|مناسبة/.test(t) && t.length < 40) { const n = num(t); return n ? gq(n, n) : gath() }
   legacy(t);
 }
@@ -603,7 +720,7 @@ document.getElementById('emo').onclick = () => msg.focus();
 shade.onclick = closeSheet;
 document.getElementById('menu').onclick = e => { e.stopPropagation(); pop.classList.toggle('on') };
 document.addEventListener('click', () => pop.classList.remove('on'));
-document.getElementById('newChat').onclick = () => { pop.classList.remove('on'); start() };
+document.getElementById('newChat').onclick = () => { pop.classList.remove('on'); start({ fresh: true }) };
 document.getElementById('tour').onclick = () => { pop.classList.remove('on'); startTour() };
 buildSamples();
 start();
