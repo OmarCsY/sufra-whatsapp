@@ -40,11 +40,11 @@ function note(t) { last = ''; chat.appendChild(el(`<div class="note">${t}</div>`
 function me(html, cls = '') { const f = last !== 'me' ? ' first' : ''; last = 'me'; const n = el(`<div class="row me${f}"><div class="b ${cls}">${html}<span class="t">${now()} ${TICK}</span></div></div>`); chat.appendChild(n); ding(660); scroll(); setTimeout(markRead, 1200); return n }
 function them(html) { const f = last !== 'them' ? ' first' : ''; last = 'them'; chat.appendChild(el(`<div class="row them${f}"><div class="b">${html}<span class="t">${now()}</span></div></div>`)); remember('model', strip(html)); ding(980); scroll() }
 let PEND = null; // الخيارات المعلّقة: تُقبل بالضغط أو بالكتابة الحرة
-function btns(list, inline) {
+function btns(list, inline, ai) {
   const w = el(`<div class="btns${inline ? ' inline' : ''}" style="--n:${list.filter(x => x[0]).length}"></div>`);
   const close = () => { [...w.children].forEach(x => x.disabled = true); if (PEND && PEND.w === w) PEND = null };
   list.filter(x => x[0]).forEach(([label, fn]) => { const b = document.createElement('button'); b.textContent = label; b.onclick = () => { close(); me(esc(label)); remember('user', label); fn() }; w.appendChild(b) });
-  PEND = { w, close, opts: list.filter(x => x[2]).map(([label, fn, re]) => ({ label, fn, re })) };
+  PEND = { w, close, ai: !!ai, labels: list.filter(x => x[0]), free: list.find(x => !x[0] && x[3]), opts: list.filter(x => x[2]).map(([label, fn, re]) => ({ label, fn, re })) };
   chat.appendChild(w); const rb = [...chat.querySelectorAll('.row.them .b')].pop();
   if (!w.children.length) { w.remove(); scroll(); return }
   if (rb) { w.style.width = Math.max(rb.offsetWidth, chat.clientWidth * .6) + 'px'; rb.style.borderBottomLeftRadius = rb.style.borderBottomRightRadius = '0' }
@@ -73,14 +73,14 @@ async function start() {
     ? '🔒 نسخة تجريبية من بوت سُفرة. أرسل صورة أكل حقيقية أو رسالة صوتية أو اكتب أي سؤال، والرد من محرك سُفرة.'
     : '🔒 نسخة تجريبية لتدفق بوت سُفرة على الواتساب. جرّب الأزرار، واضغط 📷 لإرسال صورة.');
   await bot('يا هلا ومرحبا بك في <b>سُفرة</b> 🌷\nنساعدك تحفظ نعمة بيتك وتوفّر، بصورة لسفرتكم بعد الأكل.\n\nعشان نضبط كميات الطبخ بدقة، <b>كم عدد أفراد البيت؟</b>\n<span class="hint">اختاروا أو اكتبوا العدد</span>', 700);
-  btns([['1 – 3', () => size('1-3')], ['4 – 6', () => size('4-6')], ['7 أو أكثر', () => size('7+')], ['', (t, n) => n ? size(String(n)) : size(t), /^\D{0,12}(\d+|[٠-٩]+)|^(نحن |احنا |إحنا )?(واحد|اثنين|ثنين|ثلاث|أربع|اربع|خمس|ست|سبع|ثمان|تسع|عشر)[ةه]?(\s|$)/]], true);
+  btns([['1 – 3', () => size('1-3')], ['4 – 6', () => size('4-6')], ['7 أو أكثر', () => size('7+')], ['', (t, n) => n ? size(String(n)) : size(t), /^\D{0,12}(\d+|[٠-٩]+)|^(نحن |احنا |إحنا )?(واحد|اثنين|ثنين|ثلاث|أربع|اربع|خمس|ست|سبع|ثمان|تسع|عشر)[ةه]?(\s|$)/, 'size']], true);
 }
 const WORDN = { 'واحد': 1, 'اثنين': 2, 'ثنين': 2, 'ثلاث': 3, 'أربع': 4, 'اربع': 4, 'خمس': 5, 'ست': 6, 'سبع': 7, 'ثمان': 8, 'تسع': 9, 'عشر': 10 };
 const LANGS = [['عربي', /عرب|arab/i], ['English', /english|انجل|إنجل|انقل|إنقل/i], ['Tagalog', /tagalog|filip|فلبين|تاغالوغ|تقالوق/i], ['اردو', /urdu|ارد|أورد|اورد|باكستان/i], ['हिन्दी', /hindi|هند/i], ['বাংলা', /bangla|bengal|بنغال/i], ['Indonesia', /indones|اندونيس|إندونيس/i]];
 async function size(s) {
   if (/^\d+$/.test(s)) { const n = parseInt(s, 10); S.size = n + (n === 1 ? ' فرد' : ' أفراد') } else S.size = s;
   await bot('تم 👌 وش لغة الشخص اللي يطبخ عندكم غالبًا؟\n<span class="hint">عشان نرسل له التعليمات بلغته. اختاروا أو اكتبوا اللغة</span>');
-  btns([['عربي', () => lang('عربي')], ['English', () => lang('English')], ['Tagalog', () => lang('Tagalog')], ['اردو', () => lang('اردو')], ['', t => lang(t), /^(عرب|arab|english|انجل|إنجل|tagalog|filip|فلبين|urdu|ارد|أورد|اورد|hindi|هند|bangla|bengal|بنغال|indones|اندونيس|إندونيس|الفلبيني|الهندي|الانجليزي|الإنجليزي|العربي|الأوردو|الاوردو)/i]], true)
+  btns([['عربي', () => lang('عربي')], ['English', () => lang('English')], ['Tagalog', () => lang('Tagalog')], ['اردو', () => lang('اردو')], ['', t => lang(t), /^(عرب|arab|english|انجل|إنجل|tagalog|filip|فلبين|urdu|ارد|أورد|اورد|hindi|هند|bangla|bengal|بنغال|indones|اندونيس|إندونيس|الفلبيني|الهندي|الانجليزي|الإنجليزي|العربي|الأوردو|الاوردو)/i, 'lang']], true)
 }
 async function lang(l) {
   const hit = LANGS.find(([n, re]) => n === l || re.test(l)); S.lang = hit ? hit[0] : String(l).trim().slice(0, 20);
@@ -204,9 +204,9 @@ function weekly() {
 }
 async function gath() {
   await bot('الله يتمم 🎉 كم عدد الضيوف تقريبًا؟\n<span class="hint">اختاروا أو اكتبوا العدد</span>');
-  btns([['10 – 20', () => gq(10, 20)], ['20 – 30', () => gq(20, 30)], ['أكثر من 30', guestsMore], ['', (t, n) => n ? gq(n, n) : guestsMore(), /\d|[٠-٩]/]], true)
+  btns([['10 – 20', () => gq(10, 20)], ['20 – 30', () => gq(20, 30)], ['أكثر من 30', guestsMore], ['', (t, n, n2) => n ? gq(n, n2 || n) : guestsMore(), /\d|[٠-٩]/, 'guests']], true)
 }
-async function guestsMore() { await bot('حيّاهم الله 🤍 اكتبوا العدد التقريبي 👇'); btns([['', (t, n) => n ? gq(n, n) : gath(), /\d|[٠-٩]/]]) }
+async function guestsMore() { await bot('حيّاهم الله 🤍 اكتبوا العدد التقريبي 👇'); btns([['', (t, n, n2) => n ? gq(n, n2 || n) : gath(), /\d|[٠-٩]/, 'guests']]) }
 const kg = x => (Math.round(x * 10) / 10).toString();
 async function gq(lo, hi) {
   hi = hi || lo; const who = lo === hi ? `<b>${lo} ضيف</b>` : `<b>${lo} إلى ${hi} ضيف</b>`;
@@ -242,9 +242,9 @@ async function served() {
 }
 async function findCharity() {
   await bot('شاركونا موقعكم عشان نطلع لكم <b>أقرب جمعية حفظ نعمة</b> وطريقة التواصل معها 📍\n<span class="hint">أو اكتبوا اسم مدينتكم</span>');
-  btns([['📍 مشاركة الموقع', shareLoc], ['🏙️ أكتب مدينتي', askCity], ['', t => cityTyped(t), /.+/]]);
+  btns([['📍 مشاركة الموقع', shareLoc], ['🏙️ أكتب مدينتي', askCity], ['', t => cityTyped(t), /.+/, 'city']]);
 }
-async function askCity() { await bot('اكتبوا اسم مدينتكم 👇'); btns([['', t => cityTyped(t), /.+/]]) }
+async function askCity() { await bot('اكتبوا اسم مدينتكم 👇'); btns([['', t => cityTyped(t), /.+/, 'city']]) }
 const ALIAS = { 'بريدة': ['بريده', 'القصيم'], 'عنيزة': ['عنيزه'], 'الرس': ['رس'], 'الرياض': ['رياض', 'الخرج', 'الدرعيه'], 'الأفلاج': ['افلاج', 'ليلى', 'السليل'], 'الدمام': ['دمام', 'الخبر', 'الظهران', 'الشرقيه', 'القطيف', 'الاحساء', 'الهفوف', 'الجبيل'], 'جدة': ['جده', 'مكه', 'رابغ'], 'الطائف': ['طائف', 'الطايف'], 'المدينة': ['المدينه', 'ينبع'], 'حائل': ['حايل'], 'أبها': ['ابها', 'خميس', 'عسير'], 'تبوك': ['تبوك'] };
 const norm = w => String(w).replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/[^ء-يa-z]/gi, '').replace(/^(وال|بال|فال|لل|ال)/, '');
 function lev(a, b) { const m = a.length, n = b.length; if (Math.abs(m - n) > 2) return 9; let p = Array.from({ length: n + 1 }, (_, j) => j); for (let i = 1; i <= m; i++) { const q = [i]; for (let j = 1; j <= n; j++) q[j] = Math.min(p[j] + 1, q[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = q } return p[n] }
@@ -261,10 +261,10 @@ async function cityTyped(t) {
   if (API.ai) {
     const tp = typingOn(); let j = null; try { j = await api('/api/chat', { mode: 'city', text: t }, 15000) } catch (e) {} typingOff(tp);
     if (j && j.city) { HERE = { lat: j.lat, lng: j.lng, city: j.city }; return nearest() }
-    if (!/^\S{2,14}$/.test(t.trim())) { try { await askAI({ text: t }, H.slice(0, -1)) } catch (e) {} return btns([['', x => cityTyped(x), /.+/]]) }
+    if (!/^\S{2,14}$/.test(t.trim())) { try { await askAI({ text: t }, H.slice(0, -1)) } catch (e) {} return btns([['', x => cityTyped(x), /.+/, 'city']]) }
   }
   await bot('ما عرفنا المدينة 🤔 اكتبوا اسمها مرة ثانية (مثل: الرياض، جدة، بريدة)، أو شاركوا موقعكم 📍');
-  btns([['📍 مشاركة الموقع', shareLoc], ['', x => cityTyped(x), /.+/]]);
+  btns([['📍 مشاركة الموقع', shareLoc], ['', x => cityTyped(x), /.+/, 'city']]);
 }
 function shareLoc() {
   if (!navigator.geolocation) return askCity();
@@ -274,7 +274,7 @@ function shareLoc() {
     const c = CITIES.map(c => [c, km(HERE.lat, HERE.lng, c[1], c[2])]).sort((a, b) => a[1] - b[1])[0]; if (c && c[1] < 60) HERE.city = c[0][0];
     me(`<div class="map"></div><span class="loc">📍 الموقع الحالي${HERE.city ? ' · ' + HERE.city : ''}</span>`); remember('user', '[شارك الموقع' + (HERE.city ? ': ' + HERE.city : '') + ']');
     nearest();
-  }, () => { typingOff(t); bot('ما قدرنا نوصل لموقعكم 🙏 (يمكن الإذن مقفل)\nاكتبوا اسم مدينتكم 👇').then(() => btns([['', t => cityTyped(t), /.+/]])) }, { timeout: 12000, maximumAge: 600000 });
+  }, () => { typingOff(t); bot('ما قدرنا نوصل لموقعكم 🙏 (يمكن الإذن مقفل)\nاكتبوا اسم مدينتكم 👇').then(() => btns([['', t => cityTyped(t), /.+/, 'city']])) }, { timeout: 12000, maximumAge: 600000 });
 }
 async function nearest() { NEAR = CHARITIES.map(c => ({ ...c, d: km(HERE.lat, HERE.lng, c.lat, c.lng) })).sort((a, b) => a.d - b.d); NI = 0; showCharity() }
 function linkBtns(list) {
@@ -317,18 +317,24 @@ async function litadoomCard(intro) {
 }
 
 /* ---------- الذكاء الاصطناعي ---------- */
-function profile() { const q = PEND ? [...chat.querySelectorAll('.row.them .b')].pop() : null; return { size: S.size, lang: S.lang, meal: mealSummary(S.meal), city: (HERE && HERE.city) || '', charity: NEAR[NI] ? 'جمعية ' + NEAR[NI].name + ' في ' + NEAR[NI].city : '', pending: q ? strip(q.innerHTML).slice(0, 200) : '' } }
+function profile() { const q = PEND ? [...chat.querySelectorAll('.row.them .b')].pop() : null; return { size: S.size, lang: S.lang, meal: mealSummary(S.meal), city: (HERE && HERE.city) || '', charity: NEAR[NI] ? 'جمعية ' + NEAR[NI].name + ' في ' + NEAR[NI].city : '', pending: q ? strip(q.innerHTML).slice(0, 200) : '', options: PEND && !PEND.ai ? PEND.labels.map(x => x[0]) : [], kind: PEND && PEND.free ? PEND.free[3] : '' } }
 function aiBtns(list) {
   list = (list || []).filter(x => typeof x === 'string' && x.trim()).slice(0, 3); if (!list.length) return;
-  btns(list.map(b => [b, () => (/صور|📷|كاميرا/.test(b) && !/\?|؟/.test(b)) ? openSheet() : text(b, true)]));
+  btns(list.map(b => [b, () => (/صور|📷|كاميرا/.test(b) && !/\?|؟/.test(b)) ? openSheet() : text(b, true)]), false, true);
 }
 async function askAI(extra, hist) {
-  const t = typingOn();
+  const t = typingOn(); const p = PEND; const prof = profile();
   try {
-    const j = await api('/api/chat', { ...extra, history: hist, profile: profile() }, 45000); typingOff(t); them(fmt(j.reply || '…'));
-    if (j.action === 'litadoom') { const pf = platform(); linkBtns(pf === 'desktop' ? [['🍎 App Store', LTD.ios], ['🤖 Google Play', LTD.android], ['📱 AppGallery', LTD.huawei], ['🌐 موقع لتدوم', LTD.site]] : [['⬇️ حمّل تطبيق لتدوم', LTD[pf]], ['🌐 موقع لتدوم', LTD.site]]) }
-    else if (j.action === 'charity') { await wait(400); findCharity() }
-    else if (j.action === 'gathering') { await wait(400); gath() }
+    const j = await api('/api/chat', { ...extra, history: hist, profile: prof }, 45000); typingOff(t);
+    if (j.reply && j.reply !== '…') them(fmt(j.reply)); else if (!j.action) them('…');
+    const A = j.action, jump = () => { if (PEND) PEND.close() };
+    if (A === 'litadoom') { const pf = platform(); linkBtns(pf === 'desktop' ? [['🍎 App Store', LTD.ios], ['🤖 Google Play', LTD.android], ['📱 AppGallery', LTD.huawei], ['🌐 موقع لتدوم', LTD.site]] : [['⬇️ حمّل تطبيق لتدوم', LTD[pf]], ['🌐 موقع لتدوم', LTD.site]]) }
+    else if (A === 'choose' && p && !p.ai && p.labels[(j.choice || 0) - 1]) { const o = p.labels[j.choice - 1]; p.close(); o[1]() }
+    else if (A === 'answer' && p && p.free) { p.close(); p.free[1](j.value || extra.text || '', j.number, j.number2) }
+    else if (A === 'charity') { jump(); if (j.city) { await cityTyped(j.city) } else { await wait(300); findCharity() } }
+    else if (A === 'gathering') { jump(); await wait(300); j.number ? gq(j.number, j.number2 || j.number) : gath() }
+    else if (A === 'photo') { openSheet() }
+    else if (A === 'restart') { start() }
     else aiBtns(j.buttons);
     return j
   }
@@ -338,6 +344,10 @@ async function text(t, already) {
   t = String(t).trim(); if (!t) return;
   const hist = already ? H.slice(0, -1) : H.slice();
   if (!already) { me(esc(t)); remember('user', t) }
+  // مع الذكاء الاصطناعي: النموذج يفهم القصد بأي صيغة ويحدد الإجراء (أزرار، إجابة، تبرع، عزيمة...). الأرقام المجردة فقط تُعالج محليًا.
+  const bare = /^\s*[\d٠-٩]+\s*$/.test(t);
+  if (API.ai && !(bare && PEND && PEND.free)) { try { await askAI({ text: t }, hist); return } catch (e) {} }
+  // احتياطي بدون اتصال: قواعد نصية
   if (/لتدوم|لتدووم|litadoom/i.test(t) && /رابط|تطبيق|حمل|حمّل|تحميل|نزل|نزّل|موقع|لينك|ابليكيشن|app/i.test(t)) return litadoomCard();
   if (PEND) {
     const n = num(t) ?? Object.entries(WORDN).sort((a, b) => b[0].length - a[0].length).find(([w]) => new RegExp('(^|\\s)' + w + '[ةه]?(\\s|$)').test(t))?.[1] ?? null;
@@ -346,7 +356,6 @@ async function text(t, already) {
   { const c = /(أنا|انا|احنا|إحنا|ساكن|ساكنين|نسكن|من)\s+(في|ب|بـ)?\s*/.test(t) && CITIES.find(c => c[3].test(t)); if (c) HERE = { lat: c[1], lng: c[2], city: c[0] } }
   if (/(أقرب|اقرب|وين|ابي|أبي|ابغى|أبغى).{0,12}جمعي|أبي أتبرع|ابي اتبرع|ابغى اتبرع|أبغى أتبرع/.test(t)) return findCharity();
   if (/عزيم|ضيوف|مناسبة/.test(t) && t.length < 40) { const n = num(t); return n ? gq(n, n) : gath() }
-  if (API.ai) { try { await askAI({ text: t }, hist); return } catch (e) {} }
   legacy(t);
 }
 function legacy(t) {

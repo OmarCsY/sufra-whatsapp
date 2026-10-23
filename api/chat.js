@@ -1,6 +1,10 @@
 // محادثة البوت: نص أو رسالة صوتية ← Gemini ← رد قصير بأسلوب واتساب
 const { gemini, parseJSON } = require('./_gemini');
 
+const KINDS = { size: 'عدد أفراد البيت', lang: 'لغة الشخص اللي يطبخ', guests: 'عدد الضيوف في العزيمة', city: 'اسم مدينة المستخدم' };
+const ACTIONS = ['litadoom', 'charity', 'gathering', 'photo', 'restart', 'choose', 'answer'];
+const posInt = x => (x != null && isFinite(x) && Number(x) > 0 && Number(x) < 100000) ? Math.round(Number(x)) : null;
+
 function system(p) {
   const nowKSA = new Date().toLocaleString('ar-SA-u-nu-latn', { timeZone: 'Asia/Riyadh', weekday: 'long', hour: 'numeric', minute: '2-digit' });
   return `أنت «سُفرة»، بوت واتساب سعودي يساعد الأسر تقلل هدر الطعام في البيت. طوّره فريق ذُخر ضمن هاكاثون الفقد والهدر الغذائي.
@@ -37,11 +41,24 @@ function system(p) {
 - افهم الأخطاء الإملائية واللهجات بدون ما تعلّق عليها (مثل «الياض» = الرياض، «جده» = جدة).
 - لا تقول «معليش نسيته» أو تعتذر عن أزرار؛ الأزرار يعرضها التطبيق.
 
-عن الأسرة: عدد الأفراد ${p.size || 'غير محدد'}، لغة الطباخ ${p.lang || 'عربي'}.${p.meal ? `\nآخر وجبة حللها المحرك: ${String(p.meal).slice(0, 400)}` : ''}
+فهم القصد (الأهم):
+- افهم قصد المستخدم من المعنى مو من كلمات محددة: أي صياغة، أي لهجة (سعودي أو مصري أو شامي أو خليجي...)، أخطاء إملائية، لغة ثانية، أو رسالة صوتية. مثال: «ابغى تطبيق لتدوم» و«وين أنزل برنامج لتدوم» و«لينك لتدوم» كلها نفس الطلب.
+- حدد "action" من هذي القائمة فقط إذا كان القصد واضح، وإلا null:
+  • litadoom: يبي تطبيق أو موقع أو رابط لتدوم.
+  • charity: يبي يتبرع بأكل أو يدوّر جمعية أو جهة تستلم الفائض (حتى لو ما قال كلمة «جمعية»). إذا ذكر مدينته في نفس الرسالة اكتبها في "city" بالعربي مصحّحة (مثل «الياض» = الرياض).
+  • gathering: عنده عزيمة أو مناسبة أو ضيوف ويبي يعرف الكميات. إذا ذكر العدد اكتبه في "number" (ولو ذكر مدى مثل 20 إلى 30 اكتب الأصغر في number والأكبر في "number2").
+  • photo: يبي يرسل صورة أو يسأل كيف يصوّر.
+  • restart: يبي يبدأ من جديد.
+  • choose: لما فيه أزرار معلّقة (مذكورة تحت) والمستخدم يجاوب بكلام معناه أحدها: اكتب رقم الزر في "choice". مثال: لو الزر 1 «باقي في القدور» وكتب «محد لمس الأكل» فهذا choose مع choice=1.
+  • answer: لما البوت ينتظر إدخال حر (مذكور تحت) والمستخدم أعطاه القيمة بأي صيغة: اكتبها في "value" (العدد في "number"، واللغة باسمها مثل عربي أو English أو Tagalog أو اردو، والمدينة بالعربي مصحّحة).
+- في choose و answer و charity و gathering و restart خلّ "reply" نص فاضي "" لأن التطبيق يكمل الخطوة بنفسه. أما litadoom و photo فاكتب رد قصير جدًا.
+- إذا الرسالة سؤال أو كلام ثاني مو إجابة للسؤال المعلّق: جاوبه عادي بدون action، وذكّره بالسؤال المعلّق.
+
+${Array.isArray(p.options) && p.options.length ? 'أزرار البوت المعلّقة الحين:\n' + p.options.slice(0, 6).map((o, i) => (i + 1) + ') ' + String(o).slice(0, 40)).join('\n') + '\n\n' : ''}${KINDS[p.kind] ? 'البوت ينتظر إدخال حر: ' + KINDS[p.kind] + '\n\n' : ''}عن الأسرة: عدد الأفراد ${p.size || 'غير محدد'}، لغة الطباخ ${p.lang || 'عربي'}.${p.meal ? `\nآخر وجبة حللها المحرك: ${String(p.meal).slice(0, 400)}` : ''}
 ${p.city ? `مدينة المستخدم: ${String(p.city).slice(0, 40)}\n` : ''}${p.charity ? `أقرب جمعية طلعت له: ${String(p.charity).slice(0, 80)}\n` : ''}${p.pending ? `سؤال البوت المعلّق حاليًا: ${String(p.pending).slice(0, 200)}\n` : ''}الوقت الآن في السعودية: ${nowKSA}.
 
 أرجع JSON فقط بهذا الشكل:
-{"reply":"نص الرد","buttons":["حتى 3 ردود سريعة اختيارية، كل واحد أقل من 20 حرف"],"action":"litadoom أو charity أو gathering أو null","transcript":"نص الرسالة الصوتية كما قيلت إن كانت صوتية، وإلا null"}`;
+{"reply":"نص الرد","buttons":["حتى 3 ردود سريعة اختيارية، كل واحد أقل من 20 حرف"],"action":"litadoom أو charity أو gathering أو photo أو restart أو choose أو answer أو null","choice":null,"number":null,"number2":null,"value":null,"city":null,"transcript":"نص الرسالة الصوتية كما قيلت إن كانت صوتية، وإلا null"}`;
 }
 
 module.exports = async (req, res) => {
@@ -89,11 +106,12 @@ module.exports = async (req, res) => {
       generationConfig: { temperature: 0.7, maxOutputTokens: 2048, responseMimeType: 'application/json' },
     }, { timeout: 18000 });
     const j = parseJSON(text) || { reply: text };
-    const reply = String(j.reply || '').trim() || '…';
+    const action = ACTIONS.includes(j.action) ? j.action : null;
+    const reply = String(j.reply || '').trim() || (action ? '' : '…');
     const buttons = Array.isArray(j.buttons) ? j.buttons.filter(x => typeof x === 'string' && x.trim() && x.length <= 28).slice(0, 3) : [];
     const transcript = j.transcript && j.transcript !== 'null' ? String(j.transcript).slice(0, 1000) : null;
-    const action = ['litadoom', 'charity', 'gathering'].includes(j.action) ? j.action : null;
-    res.status(200).json({ reply, buttons, action, transcript, model });
+    const str = (x, n) => x && x !== 'null' ? String(x).slice(0, n) : null;
+    res.status(200).json({ reply, buttons, action, choice: posInt(j.choice), number: posInt(j.number), number2: posInt(j.number2), value: str(j.value, 60), city: str(j.city, 40), transcript, model });
   } catch (e) {
     res.status(502).json({ error: String((e && e.message) || e).slice(0, 300) });
   }
