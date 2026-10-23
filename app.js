@@ -50,14 +50,24 @@ function btns(list, inline, ai) {
   if (rb) { w.style.width = Math.max(rb.offsetWidth, chat.clientWidth * .6) + 'px'; rb.style.borderBottomLeftRadius = rb.style.borderBottomRightRadius = '0' }
   scroll()
 }
-function skip(label, fn) { const b = el(`<button class="skip">⏩ ${label}</button>`); last = ''; b.onclick = () => { b.remove(); fn() }; chat.appendChild(b); scroll() }
+function skip(label, fn) { const b = el(`<button class="skip">⏩ ${label}</button>`); last = ''; b._fn = fn; b.onclick = () => { b.remove(); fn() }; chat.appendChild(b); scroll() }
 function typingOn() { st.textContent = 'يكتب…'; markRead(); const t = el(`<div class="row them${last !== 'them' ? ' first' : ''}"><div class="b typing"><i></i><i></i><i></i></div></div>`); chat.appendChild(t); scroll(); return t }
 function typingOff(t) { t && t.remove(); st.textContent = 'حساب أعمال' }
-async function bot(html, ms = 900) { const t = typingOn(); await wait(ms); typingOff(t); them(html) }
+const TOUR = { on: false, stop: false };
+const spd = ms => TOUR.on ? Math.round(ms * .45) : ms; // الجولة السريعة تمشي أسرع
+async function bot(html, ms = 900) { const t = typingOn(); await wait(spd(ms)); typingOff(t); them(html) }
+const SOFT_MSG = 'عندنا ضغط حلو 😅 ثواني وجرّب';
+const softErr = e => !!(e && e.api && (!e.status || e.status === 429 || e.status >= 500));
+let PHOTO_BUSY = false;
+async function withBusy(fn) {
+  if (PHOTO_BUSY) { closeSheet(); return bot('لحظة، لسه نحلل الصورة السابقة ⏳', 500) }
+  PHOTO_BUSY = true; try { await fn() } finally { PHOTO_BUSY = false }
+}
 
 async function api(path, body, ms = 45000) {
   const c = new AbortController(); const to = setTimeout(() => c.abort(), ms);
-  try { const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: c.signal }); if (!r.ok) throw new Error('http ' + r.status); return await r.json() }
+  try { const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: c.signal }); if (!r.ok) { const e = new Error('http ' + r.status); e.status = r.status; throw e } return await r.json() }
+  catch (e) { e.api = true; throw e }
   finally { clearTimeout(to) }
 }
 const blobToB64 = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(b) });
@@ -114,8 +124,12 @@ async function start() {
   note(API.ai
     ? '🔒 نسخة تجريبية من بوت سُفرة. أرسل صورة أكل حقيقية أو رسالة صوتية أو اكتب أي سؤال، والرد من محرك سُفرة.'
     : '🔒 نسخة تجريبية لتدفق بوت سُفرة على الواتساب. جرّب الأزرار، واضغط 📷 لإرسال صورة.');
+  await welcome();
+}
+async function welcome() {
   await bot('يا هلا ومرحبا بك في <b>سُفرة</b> 🌷\nنساعدك تحفظ نعمة بيتك وتوفّر، بصورة لسفرتكم بعد الأكل.\n\nعشان نضبط كميات الطبخ بدقة، <b>كم عدد أفراد البيت؟</b>\n<span class="hint">اختاروا أو اكتبوا العدد</span>', 700);
   btns([['1 – 3', () => size('1-3')], ['4 – 6', () => size('4-6')], ['7 أو أكثر', () => size('7+')], ['', (t, n) => n ? size(String(n)) : size(t), /^\D{0,12}(\d+|[٠-٩]+)|^(نحن |احنا |إحنا )?(واحد|اثنين|ثنين|ثلاث|أربع|اربع|خمس|ست|سبع|ثمان|تسع|عشر)[ةه]?(\s|$)/, 'size']], true);
+  if (!TOUR.on) { const b = el('<button class="skip tourbtn">🎬 جولة سريعة</button>'); b.onclick = () => { b.remove(); startTour() }; chat.appendChild(b); scroll() }
 }
 const WORDN = { 'واحد': 1, 'اثنين': 2, 'ثنين': 2, 'ثلاث': 3, 'أربع': 4, 'اربع': 4, 'خمس': 5, 'ست': 6, 'سبع': 7, 'ثمان': 8, 'تسع': 9, 'عشر': 10 };
 const LANGS = [['عربي', /عرب|arab/i], ['English', /english|انجل|إنجل|انقل|إنقل/i], ['Tagalog', /tagalog|filip|فلبين|تاغالوغ|تقالوق/i], ['اردو', /urdu|ارد|أورد|اورد|باكستان/i], ['हिन्दी', /hindi|هند/i], ['বাংলা', /bangla|bengal|بنغال/i], ['Indonesia', /indones|اندونيس|إندونيس/i]];
@@ -152,23 +166,40 @@ function buildSamples() {
 }
 async function sample(s) {
   closeSheet();
-  if (!API.ok) return photoScripted(s.alt || 'plate');
-  try { const blob = await (await fetch(s.src)).blob(); await realPhoto(await compress(blob), s.alt) } catch (e) { photoScripted(s.alt || 'plate') }
+  return withBusy(async () => {
+    if (!API.ok) return photoScripted(s.alt || 'plate');
+    let data; try { data = await compress(await (await fetch(s.src)).blob()) } catch (e) { return photoScripted(s.alt || 'plate') }
+    return realPhoto(data, s.alt);
+  });
 }
 async function pickFile(input) {
   const f = input.files && input.files[0]; input.value = ''; if (!f) return; closeSheet();
-  let data; try { data = await compress(f) } catch (e) { return bot('ما قدرنا نفتح الصورة 🤔 جرّبوا صورة ثانية.') }
-  if (!API.ok) { me(`<img src="${data}" alt="">`, 'media'); remember('user', '[أرسل صورة]'); return bot('وصلت الصورة 📷 التحليل الحقيقي يشتغل في النسخة المنشورة من الموقع.') }
-  realPhoto(data);
+  return withBusy(async () => {
+    let data; try { data = await compress(f) } catch (e) { return bot('ما قدرنا نفتح الصورة 🤔 جرّبوا صورة ثانية.') }
+    if (!API.ok) { me(`<img src="${data}" alt="">`, 'media'); remember('user', '[أرسل صورة]'); return bot('وصلت الصورة 📷 التحليل الحقيقي يشتغل في النسخة المنشورة من الموقع.') }
+    return realPhoto(data);
+  });
 }
 
 async function realPhoto(dataUrl, alt) {
   me(`<img src="${dataUrl}" alt="">`, 'media'); remember('user', '[أرسل صورة للأكل]');
   await wait(250); await bot('ثواني نحلل الصورة… 🔍', 500);
-  const t = typingOn(); let j;
-  try { j = await api('/api/analyze', { image: dataUrl.split(',')[1], mime: 'image/jpeg' }, 60000) }
-  catch (e) { typingOff(t); if (alt) return photoScripted(alt, true); return them('الخدمة عليها ضغط الحين 🙏 جرّبوا ترسلون الصورة مرة ثانية بعد شوي.') }
-  typingOff(t); showResult(j);
+  return analyzePhoto(dataUrl, alt, 0);
+}
+async function analyzePhoto(dataUrl, alt, tries) {
+  const t = typingOn(); let j, err;
+  const t7 = setTimeout(() => { st.textContent = 'يحلل الصورة…' }, 7000);
+  const t15 = setTimeout(() => { them('لحظات، نحسب الأوزان بدقة ⏳'); chat.appendChild(t); scroll() }, 15000);
+  try { j = await api('/api/analyze', { image: dataUrl.split(',')[1], mime: 'image/jpeg' }, TOUR.on ? 12000 : 60000) } catch (e) { err = e }
+  clearTimeout(t7); clearTimeout(t15); typingOff(t);
+  if (!err) return showResult(j);
+  if (TOUR.on && alt) return photoScripted(alt, true); // الجولة: نتيجة احتياطية واقعية بدل الانتظار
+  if (softErr(err) && tries < 1) {
+    them(SOFT_MSG);
+    return btns([['🔁 أعد المحاولة', () => withBusy(() => analyzePhoto(dataUrl, alt, tries + 1))]]);
+  }
+  if (alt) return photoScripted(alt, true);
+  return them('الخدمة عليها ضغط الحين 🙏 جرّبوا ترسلون الصورة مرة ثانية بعد شوي.');
 }
 
 const SAR = n => Math.round(Number(n) || 0);
@@ -192,8 +223,8 @@ async function showResult(j) {
   const w = soon && whenTxt(soon); if (w) h += `\n⏰ الأفضل تستخدمونه قبل: <b>${w}</b>`;
   if (j.next_day_suggestion) h += `\n\n💡 اقتراح بكرة: <b>${esc(j.next_day_suggestion)}</b>`;
   them(h);
-  const tg = mealG(j), allSalim = j.items.every(i => i.state === 'سليم');
-  if (j.charity_suggestion || tg >= 3000 || (allSalim && tg >= 1500)) { await bot('باقي عندكم كمية كبيرة 🍲\nهل هذا الأكل <b>تقدّم على السفرة</b>، ولا باقي في القدور ما أحد أكل منه؟', 900); btns([['باقي في القدور', served, /^لا|باقي|بالقدور|في القدور|ما تقد|ما انقد|محد|ما أحد|ما احد|ما أكل منه|ما اكل منه|ما انلمس/], ['تقدّم على السفرة', homePlan, /^(نعم|ايه|إيه|اي|أي)(\s|$)|^تقد|انقد|قدمناه|قدّمناه|حطيناه على|أكلوا منه|اكلوا منه/]]) }
+  const tg = mealG(j), allSalim = j.items.every(i => i.state === 'سليم'), forced = S.forceDonate; S.forceDonate = false;
+  if (j.charity_suggestion || tg >= 3000 || forced || (allSalim && tg >= 1500)) { await bot('باقي عندكم كمية كبيرة 🍲\nهل هذا الأكل <b>تقدّم على السفرة</b>، ولا باقي في القدور ما أحد أكل منه؟', 900); btns([['باقي في القدور', served, /^لا|باقي|بالقدور|في القدور|ما تقد|ما انقد|محد|ما أحد|ما احد|ما أكل منه|ما اكل منه|ما انلمس/], ['تقدّم على السفرة', homePlan, /^(نعم|ايه|إيه|اي|أي)(\s|$)|^تقد|انقد|قدمناه|قدّمناه|حطيناه على|أكلوا منه|اكلوا منه/]]) }
   else btns([['دخل الثلاجة ✅', fridge]]);
 }
 
@@ -334,7 +365,7 @@ function shareLoc() {
 }
 async function nearest() { NEAR = CHARITIES.map(c => ({ ...c, d: km(HERE.lat, HERE.lng, c.lat, c.lng) })).sort((a, b) => a.d - b.d); NI = 0; showCharity() }
 function linkBtns(list) {
-  const w = el(`<div class="btns"></div>`); list.forEach(([label, href]) => { const a = document.createElement('a'); a.className = 'lb'; a.textContent = label; a.href = href; a.target = '_blank'; a.rel = 'noopener'; w.appendChild(a) });
+  const w = el(`<div class="btns"></div>`); list.forEach(([label, href]) => { const a = document.createElement('a'); a.className = 'lb'; a.textContent = label; a.href = href; a.target = '_blank'; a.rel = 'noopener'; if (S.tour) { a.title = 'معطّل أثناء الجولة'; a.addEventListener('click', ev => ev.preventDefault()) } w.appendChild(a) });
   chat.appendChild(w); const rb = [...chat.querySelectorAll('.row.them .b')].pop(); if (rb) { w.style.width = Math.max(rb.offsetWidth, chat.clientWidth * .6) + 'px'; rb.style.borderBottomLeftRadius = rb.style.borderBottomRightRadius = '0' } scroll();
 }
 async function showCharity() {
@@ -407,7 +438,20 @@ async function text(t, already) {
   if (!already) { me(esc(t)); remember('user', t) }
   // مع الذكاء الاصطناعي: النموذج يفهم القصد بأي صيغة ويحدد الإجراء (أزرار، إجابة، تبرع، عزيمة...). الأرقام المجردة فقط تُعالج محليًا.
   const bare = /^\s*[\d٠-٩]+\s*$/.test(t);
-  if (API.ai && !(bare && PEND && PEND.free)) { try { await askAI({ text: t }, hist); return } catch (e) {} }
+  if (API.ai && !(bare && PEND && PEND.free)) { if (await aiTry(t, hist, 0)) return }
+  localRoute(t);
+}
+// نداء الذكاء الاصطناعي مع حماية الضغط: أول فشل ← رسالة لطيفة وزر إعادة، ثاني فشل ← القواعد المحلية
+async function aiTry(t, hist, tries) {
+  try { await askAI({ text: t }, hist); return true }
+  catch (e) {
+    if (tries >= 1 || !softErr(e)) return false;
+    them(SOFT_MSG);
+    btns([['🔁 أعد المحاولة', async () => { if (!(await aiTry(t, hist, 1))) localRoute(t) }]]);
+    return true;
+  }
+}
+function localRoute(t) {
   // احتياطي بدون اتصال: قواعد نصية
   if (/لتدوم|لتدووم|litadoom/i.test(t) && /رابط|تطبيق|حمل|حمّل|تحميل|نزل|نزّل|موقع|لينك|ابليكيشن|app/i.test(t)) return litadoomCard();
   if (PEND) {
@@ -488,6 +532,61 @@ async function toWav(blob) {
   return new Blob([b], { type: 'audio/wav' });
 }
 
+/* ---------- 🎬 الجولة السريعة (وضع العرض) ---------- */
+// تشغّل القصة كاملة بنفس دوال البوت الحقيقية: الضغطات تظهر كأن المستخدم ضغطها، ولا يُرسل أي شي خارجي.
+const STOP = { stop: true };
+const tourStop = el('<button class="skip" style="display:none;position:absolute;top:68px;left:50%;transform:translateX(-50%);z-index:3;margin:0">⏹ إيقاف</button>');
+document.querySelector('.app').appendChild(tourStop);
+tourStop.onclick = () => { TOUR.stop = true; tourStop.textContent = 'جاري الإيقاف…' };
+const tgap = async (ms = 1800) => { await wait(ms); if (TOUR.stop) throw STOP };
+function tpress(match) {
+  const p = PEND, i = p ? p.labels.findIndex(x => x[0].includes(match)) : -1; if (i < 0) return null;
+  const [label, fn] = p.labels[i]; p.close(); me(esc(label)); remember('user', label); return Promise.resolve(fn());
+}
+function tsay(text, n) { const p = PEND; if (!p || !p.free) return null; p.close(); me(esc(text)); remember('user', text); return Promise.resolve(p.free[1](text, n)) }
+function tskip() { const b = [...chat.querySelectorAll('.skip:not(.tourbtn)')].pop(); if (!b || !b._fn) return null; b.remove(); return Promise.resolve(b._fn()) }
+async function step(r, ms) { if (r == null) throw new Error('tour step missing'); await r; await tgap(ms) }
+const demoMeal = (rice, chk) => ({ items: [{ name: 'رز', grams: rice, value_sar: Math.round(rice * 12 / 1000), state: 'باقي' }, { name: 'دجاج', grams: chk, value_sar: Math.round(chk * 40 / 1000), state: 'باقي' }], total_value_sar: Math.round(rice * 12 / 1000 + chk * 40 / 1000), servings_left: 3, ts: Date.now() - 3 * 864e5, fridge: true, status: 'full', donated: false, demo: true });
+async function runTour() {
+  day('اليوم');
+  note('🎬 جولة سريعة: قصة كاملة بدقيقة تقريبًا. الأزرار تنضغط تلقائيًا، وما يتم أي اتصال أو إرسال حقيقي.');
+  await welcome(); await tgap(1500);
+  await step(tsay('5', 5));
+  await step(tpress('عربي'));
+  await step(sample({ src: 's-kabsa.jpg', alt: 'plate' }));
+  await step(tpress('دخل الثلاجة'));
+  await step(tskip());                       // صباح اليوم التالي
+  await step(tpress('تمام'));
+  await step(tskip());                       // نهاية مدة الحفظ
+  await step(tpress('كل ✅'));
+  S.meals.unshift(demoMeal(700, 250), demoMeal(700, 250));
+  note('🎬 في الجولة نضيف وجبتين تجريبيتين عشان يظهر ملخص الأسبوع');
+  await step(tskip());                       // آخر الأسبوع
+  await step(tpress('أرسلها للطباخ'));
+  await step(tpress('عندنا عزيمة'));
+  await step(tsay('25', 25));
+  await step(tskip());                       // بعد العزيمة
+  await step(tpress('أرسل صورة'), 900);
+  closeSheet(); S.forceDonate = true;
+  await step(sample({ src: 's-pots.jpg', alt: 'pots' }));
+  await step(tpress('باقي في القدور'));
+  await step(tpress('أقرب جمعية'));
+  if (PEND && PEND.labels.some(x => x[0].includes('ساعتين'))) await step(tpress('أقل من ساعتين'));
+  await step(tsay('عنيزة'));
+  await step(tpress('تواصلنا'));
+  await step(tskip(), 500);                  // آخر الشهر
+}
+async function startTour() {
+  if (TOUR.on) return;
+  TOUR.on = true; TOUR.stop = false; PHOTO_BUSY = false;
+  closeSheet(); pop.classList.remove('on'); if (rec) stopRec(false);
+  H = []; S = { size: '', lang: 'عربي', meal: null, meals: [], tour: true }; HERE = null; NEAR = []; NI = 0; PEND = null; chat.innerHTML = ''; last = '';
+  tourStop.textContent = '⏹ إيقاف'; tourStop.style.display = 'flex';
+  try { await runTour() } catch (e) { if (e !== STOP) { console.error(e); note('تعذّر إكمال الجولة 🙏 جرّبوا مرة ثانية من القائمة ⋮') } }
+  TOUR.on = false; tourStop.style.display = 'none';
+  if (TOUR.stop) note('⏹ تم إيقاف الجولة، تقدرون تكملون بأنفسكم'); else note('🎬 انتهت الجولة');
+}
+
 /* ---------- الأحداث ---------- */
 function sendText() { const t = msg.value; msg.value = ''; sendB.classList.remove('on'); text(t) }
 msg.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); sendText() } });
@@ -505,5 +604,6 @@ shade.onclick = closeSheet;
 document.getElementById('menu').onclick = e => { e.stopPropagation(); pop.classList.toggle('on') };
 document.addEventListener('click', () => pop.classList.remove('on'));
 document.getElementById('newChat').onclick = () => { pop.classList.remove('on'); start() };
+document.getElementById('tour').onclick = () => { pop.classList.remove('on'); startTour() };
 buildSamples();
 start();

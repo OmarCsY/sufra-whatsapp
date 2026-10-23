@@ -106,7 +106,7 @@ footer.recording .inp{display:none}footer.recording .rec{display:flex}
 .sheet h4{font-size:14px;color:#667781;font-weight:500}
 .pop{position:absolute;top:52px;left:8px;background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(11,20,26,.2);z-index:6;display:none;padding:6px 0}
 .pop.on{display:block}
-.pop button{background:none;border:0;font:inherit;font-size:15px;padding:10px 22px;cursor:pointer;color:#111B21}
+.pop button{display:block;width:100%;text-align:start;background:none;border:0;font:inherit;font-size:15px;padding:10px 22px;cursor:pointer;color:#111B21;white-space:nowrap}
 .b .err{color:#667781;font-size:13px}
 .b .hint{color:#667781;font-size:13px}
 .btns a.lb{display:block;text-align:center;text-decoration:none;border-top:1px solid #E9EDEF;padding:11px 8px;font-size:15px;color:var(--link);font-weight:500}
@@ -154,7 +154,7 @@ footer.recording .inp{display:none}footer.recording .rec{display:flex}
   <h4>أو جرّب بصورة جاهزة</h4>
   <div class="g" id="samples"></div>
 </div>
-<div class="pop" id="pop"><button id="newChat">محادثة جديدة</button></div>
+<div class="pop" id="pop"><button id="newChat">محادثة جديدة</button><button id="tour">🎬 جولة سريعة</button></div>
 <input type="file" id="fGal" accept="image/*" hidden>
 <input type="file" id="fCam" accept="image/*" capture="environment" hidden>
 </div>
