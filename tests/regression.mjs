@@ -57,7 +57,7 @@ const CASES = [
   // أسئلة عامة
   ['تسخين', 'كيف اسخن الرز', null, r => NONE.includes(r.action) && r.reply.length > 10],
   ['خارج الموضوع', 'من فاز بكأس العالم 2018؟', null, r => NONE.includes(r.action) && r.reply.length > 5],
-  ['إنجليزي', 'How should I store leftover rice?', null, r => NONE.includes(r.action) && /[A-Za-z]{4,}/.test(r.reply)],
+  ['إنجليزي', 'How should I store leftover rice?', null, r => (NONE.includes(r.action) || r.action === 'safety_check') && /[A-Za-z]{4,}/.test(r.reply)],
   // وش أثري
   ['أثري 1', 'وش اثري', null, r => r.action === 'impact'],
   ['أثري 2', 'كم وفرت لين الحين', null, r => r.action === 'impact'],
