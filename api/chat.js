@@ -3,6 +3,21 @@ const { gemini, parseJSON } = require('./_gemini');
 
 const KINDS = { size: 'عدد أفراد البيت', lang: 'لغة الشخص اللي يطبخ', guests: 'عدد الضيوف في العزيمة', city: 'اسم مدينة المستخدم' };
 const ACTIONS = ['litadoom', 'charity', 'gathering', 'photo', 'restart', 'choose', 'answer'];
+const SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    reply: { type: 'STRING' },
+    buttons: { type: 'ARRAY', items: { type: 'STRING' } },
+    action: { type: 'STRING', nullable: true },
+    choice: { type: 'INTEGER', nullable: true },
+    number: { type: 'INTEGER', nullable: true },
+    number2: { type: 'INTEGER', nullable: true },
+    value: { type: 'STRING', nullable: true },
+    city: { type: 'STRING', nullable: true },
+    transcript: { type: 'STRING', nullable: true },
+  },
+  required: ['reply'],
+};
 const posInt = x => (x != null && isFinite(x) && Number(x) > 0 && Number(x) < 100000) ? Math.round(Number(x)) : null;
 
 function system(p) {
@@ -52,7 +67,7 @@ function system(p) {
   • choose: لما فيه أزرار معلّقة (مذكورة تحت) والمستخدم يجاوب بكلام معناه أحدها: اكتب رقم الزر في "choice". مثال: لو الزر 1 «باقي في القدور» وكتب «محد لمس الأكل» فهذا choose مع choice=1.
   • answer: لما البوت ينتظر إدخال حر (مذكور تحت) والمستخدم أعطاه القيمة بأي صيغة: اكتبها في "value" (العدد في "number"، واللغة باسمها مثل عربي أو English أو Tagalog أو اردو، والمدينة بالعربي مصحّحة).
 - في choose و answer و charity و gathering و restart خلّ "reply" نص فاضي "" لأن التطبيق يكمل الخطوة بنفسه. أما litadoom و photo فاكتب رد قصير جدًا.
-- إذا الرسالة سؤال أو كلام ثاني مو إجابة للسؤال المعلّق: جاوبه عادي بدون action، وذكّره بالسؤال المعلّق.
+- إذا الرسالة سؤال أو كلام ثاني مو إجابة للسؤال المعلّق (مثل «كيف أسخّن الرز» وهو ينتظر عدد الضيوف): جاوبه عادي بدون action (null)، وذكّره بالسؤال المعلّق. لا تحدد action بس لأن فيه سؤال معلّق؛ حدده فقط لو المستخدم نفسه طلبه أو جاوب عليه.
 
 ${Array.isArray(p.options) && p.options.length ? 'أزرار البوت المعلّقة الحين:\n' + p.options.slice(0, 6).map((o, i) => (i + 1) + ') ' + String(o).slice(0, 40)).join('\n') + '\n\n' : ''}${KINDS[p.kind] ? 'البوت ينتظر إدخال حر: ' + KINDS[p.kind] + '\n\n' : ''}عن الأسرة: عدد الأفراد ${p.size || 'غير محدد'}، لغة الطباخ ${p.lang || 'عربي'}.${p.meal ? `\nآخر وجبة حللها المحرك: ${String(p.meal).slice(0, 400)}` : ''}
 ${p.city ? `مدينة المستخدم: ${String(p.city).slice(0, 40)}\n` : ''}${p.charity ? `أقرب جمعية طلعت له: ${String(p.charity).slice(0, 80)}\n` : ''}${p.pending ? `سؤال البوت المعلّق حاليًا: ${String(p.pending).slice(0, 200)}\n` : ''}الوقت الآن في السعودية: ${nowKSA}.
@@ -103,7 +118,7 @@ module.exports = async (req, res) => {
     const { text, model } = await gemini({
       systemInstruction: { parts: [{ text: system(b.profile || {}) }] },
       contents,
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048, responseMimeType: 'application/json' },
+      generationConfig: { temperature: 0.7, maxOutputTokens: 2048, responseMimeType: 'application/json', responseSchema: SCHEMA },
     }, { timeout: 18000 });
     const j = parseJSON(text) || { reply: text };
     const action = ACTIONS.includes(j.action) ? j.action : null;
