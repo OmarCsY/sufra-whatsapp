@@ -242,10 +242,30 @@ async function served() {
 }
 async function findCharity() {
   await bot('شاركونا موقعكم عشان نطلع لكم <b>أقرب جمعية حفظ نعمة</b> وطريقة التواصل معها 📍\n<span class="hint">أو اكتبوا اسم مدينتكم</span>');
-  btns([['📍 مشاركة الموقع', shareLoc], ['🏙️ أكتب مدينتي', askCity], ['', t => cityTyped(t), new RegExp(CITIES.map(c => c[3].source).join('|'))]]);
+  btns([['📍 مشاركة الموقع', shareLoc], ['🏙️ أكتب مدينتي', askCity], ['', t => cityTyped(t), /.+/]]);
 }
 async function askCity() { await bot('اكتبوا اسم مدينتكم 👇'); btns([['', t => cityTyped(t), /.+/]]) }
-function cityTyped(t) { const c = CITIES.find(c => c[3].test(t)); if (!c) return bot('للحين الجمعيات المسجلة عندنا في: بريدة، الرياض، الأفلاج، الدمام، جدة، الطائف 🙏\nاكتبوا أقرب مدينة لكم منها.').then(() => btns([['', t => cityTyped(t), /.+/]])); HERE = { lat: c[1], lng: c[2], city: c[0] }; return nearest() }
+const ALIAS = { 'بريدة': ['بريده', 'القصيم'], 'عنيزة': ['عنيزه'], 'الرس': ['رس'], 'الرياض': ['رياض', 'الخرج', 'الدرعيه'], 'الأفلاج': ['افلاج', 'ليلى', 'السليل'], 'الدمام': ['دمام', 'الخبر', 'الظهران', 'الشرقيه', 'القطيف', 'الاحساء', 'الهفوف', 'الجبيل'], 'جدة': ['جده', 'مكه', 'رابغ'], 'الطائف': ['طائف', 'الطايف'], 'المدينة': ['المدينه', 'ينبع'], 'حائل': ['حايل'], 'أبها': ['ابها', 'خميس', 'عسير'], 'تبوك': ['تبوك'] };
+const norm = w => String(w).replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/[^ء-يa-z]/gi, '').replace(/^(وال|بال|فال|لل|ال)/, '');
+function lev(a, b) { const m = a.length, n = b.length; if (Math.abs(m - n) > 2) return 9; let p = Array.from({ length: n + 1 }, (_, j) => j); for (let i = 1; i <= m; i++) { const q = [i]; for (let j = 1; j <= n; j++) q[j] = Math.min(p[j] + 1, q[j - 1] + 1, p[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); p = q } return p[n] }
+function findCity(t) {
+  const direct = CITIES.find(c => c[3].test(t)); if (direct) return direct;
+  const words = String(t).split(/\s+/).map(norm).filter(w => w.length >= 3);
+  let best = null, bd = 9;
+  for (const c of CITIES) for (const al of [c[0], ...(ALIAS[c[0]] || [])]) { const n = norm(al); for (const w of words) { const d = lev(w, n); const ok = d <= (n.length >= 7 ? 2 : 1) && d < n.length / 3; if (ok && d < bd) { bd = d; best = c } } }
+  return best;
+}
+async function cityTyped(t) {
+  let c = findCity(t);
+  if (c) { HERE = { lat: c[1], lng: c[2], city: c[0] }; return nearest() }
+  if (API.ai) {
+    const tp = typingOn(); let j = null; try { j = await api('/api/chat', { mode: 'city', text: t }, 15000) } catch (e) {} typingOff(tp);
+    if (j && j.city) { HERE = { lat: j.lat, lng: j.lng, city: j.city }; return nearest() }
+    if (!/^\S{2,14}$/.test(t.trim())) { try { await askAI({ text: t }, H.slice(0, -1)) } catch (e) {} return btns([['', x => cityTyped(x), /.+/]]) }
+  }
+  await bot('ما عرفنا المدينة 🤔 اكتبوا اسمها مرة ثانية (مثل: الرياض، جدة، بريدة)، أو شاركوا موقعكم 📍');
+  btns([['📍 مشاركة الموقع', shareLoc], ['', x => cityTyped(x), /.+/]]);
+}
 function shareLoc() {
   if (!navigator.geolocation) return askCity();
   const t = typingOn();
@@ -263,8 +283,8 @@ function linkBtns(list) {
 }
 async function showCharity() {
   const c = NEAR[NI]; if (!c) return bot('هذي كل الجمعيات المسجلة عندنا للحين 🙏');
-  const d = Math.round(c.d), dist = d < 3 ? 'قريبة منكم' : `تقريبًا ${d} كم`;
-  await bot(`${NI ? 'هذي جمعية ثانية' : 'أقرب جمعية لكم'} 🤝\n<b>جمعية ${esc(c.name)}</b>\n📍 ${esc(c.city)} · ${dist}\n📞 <span dir="ltr">${c.phones.join(' · ')}</span>\n\n${qtyTxt() ? '🍲 الكمية: ' + esc(qtyTxt()) + '\n' : ''}💡 تواصلوا معهم الحين، والأكل يبقى مغطى لين يوصل المندوب.`, 1100);
+  const d = Math.round(c.d), dist = d < 3 ? 'قريبة منكم' : `تقريبًا ${d} كم${HERE && HERE.city && HERE.city !== c.city ? ' عن ' + HERE.city : ''}`;
+  await bot(`${NI ? 'هذي جمعية ثانية' : (d > 150 ? 'للحين ما عندنا جمعية مسجلة في مدينتكم، وهذي أقرب وحدة' : 'أقرب جمعية لكم')} 🤝\n<b>جمعية ${esc(c.name)}</b>\n📍 ${esc(c.city)} · ${dist}\n📞 <span dir="ltr">${c.phones.join(' · ')}</span>\n\n${qtyTxt() ? '🍲 الكمية: ' + esc(qtyTxt()) + '\n' : ''}💡 تواصلوا معهم الحين، والأكل يبقى مغطى لين يوصل المندوب.`, 1100);
   const mob = c.phones.find(p => /^05\d{8}$/.test(p));
   const msgTxt = `السلام عليكم ورحمة الله، عندنا فائض أكل من مناسبة ما تقدّم على السفرة وباقي في القدور${qtyTxt() ? ': ' + qtyTxt() : ''}.${HERE && HERE.city ? ' موقعنا: ' + HERE.city + '.' : ''} هل تقدرون تستلمونه؟ جزاكم الله خير. (وصلنا لكم عن طريق سُفرة)`;
   const L = [['📞 اتصال', 'tel:' + c.phones[0]]];
@@ -281,7 +301,19 @@ async function donated() {
 async function loc() { return findCharity() }
 async function monthly() {
   day('نهاية الشهر'); await bot('📊 <b>ملخص شهركم مع سُفرة</b>\n💰 وفّرتوا: <b>140 ريال</b>\n🍽️ أنقذتوا: <b>9 كجم</b> أكل\n🤝 تبرعتوا: <b>9 كجم</b> لجمعية\n🏆 أفضل أسبوع: الثاني\n\nكل لقمة تفرق 🌿');
-  btns([['📲 أضف إنجازنا في لتدوم', async () => { await bot('هذي الخطوة الجاية في سُفرة 🤝 نقترح على لتدوم إن ملخص شهركم ينضاف تلقائيًا لحسابكم في تطبيق لتدوم، عشان يجتمع وعيكم وأثركم في مكان واحد.\n<span class="err">(ميزة مقترحة، ما هي مفعّلة في هذي النسخة)</span>'); btns([['🔁 ابدأ من جديد', start]]) }], ['🔁 ابدأ من جديد', start]]);
+  btns([['📲 أضف إنجازنا في لتدوم', async () => { await bot('هذي الخطوة الجاية في سُفرة 🤝 نقترح على لتدوم إن ملخص شهركم ينضاف تلقائيًا لحسابكم في تطبيق لتدوم، عشان يجتمع وعيكم وأثركم في مكان واحد.\n<span class="err">(ميزة مقترحة، ما هي مفعّلة في هذي النسخة)</span>'); await litadoomCard('وللحين تقدرون تحمّلون تطبيق لتدوم وتتابعون محتواه 👇'); btns([['🔁 ابدأ من جديد', start]]) }], ['🔁 ابدأ من جديد', start]]);
+}
+
+/* ---------- لتدوم ---------- */
+const LTD = { site: 'https://flwp.gfsa.gov.sa/', ios: 'https://apps.apple.com/app/id6745878156', android: 'https://play.google.com/store/apps/details?id=sa.gov.gfsa.flwp.app', huawei: 'https://appgallery.huawei.com/app/C115643345' };
+function platform() { const u = navigator.userAgent || ''; if (/HUAWEI|HONOR|HMSCore|HarmonyOS|HuaweiBrowser/i.test(u)) return 'huawei'; if (/iPhone|iPad|iPod/i.test(u) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'ios'; if (/Android/i.test(u)) return 'android'; return 'desktop' }
+async function litadoomCard(intro) {
+  const pf = platform();
+  await bot((intro ? intro + '\n\n' : '') + '📲 <b>تطبيق لتدوم</b>\nالبرنامج الوطني للحد من الفقد والهدر في الغذاء' + (pf === 'desktop' ? '\nاختاروا متجر جوالكم 👇' : '\nحمّلوه مباشرة على جوالكم 👇'), 700);
+  const L = pf === 'ios' ? [['⬇️ تحميل من App Store', LTD.ios]] : pf === 'android' ? [['⬇️ تحميل من Google Play', LTD.android]] : pf === 'huawei' ? [['⬇️ تحميل من AppGallery', LTD.huawei]]
+    : [['🍎 App Store (آيفون)', LTD.ios], ['🤖 Google Play (أندرويد)', LTD.android], ['📱 AppGallery (هواوي)', LTD.huawei]];
+  L.push(['🌐 موقع لتدوم الرسمي', LTD.site]);
+  linkBtns(L);
 }
 
 /* ---------- الذكاء الاصطناعي ---------- */
@@ -292,13 +324,21 @@ function aiBtns(list) {
 }
 async function askAI(extra, hist) {
   const t = typingOn();
-  try { const j = await api('/api/chat', { ...extra, history: hist, profile: profile() }, 45000); typingOff(t); them(fmt(j.reply || '…')); aiBtns(j.buttons); return j }
+  try {
+    const j = await api('/api/chat', { ...extra, history: hist, profile: profile() }, 45000); typingOff(t); them(fmt(j.reply || '…'));
+    if (j.action === 'litadoom') { const pf = platform(); linkBtns(pf === 'desktop' ? [['🍎 App Store', LTD.ios], ['🤖 Google Play', LTD.android], ['📱 AppGallery', LTD.huawei], ['🌐 موقع لتدوم', LTD.site]] : [['⬇️ حمّل تطبيق لتدوم', LTD[pf]], ['🌐 موقع لتدوم', LTD.site]]) }
+    else if (j.action === 'charity') { await wait(400); findCharity() }
+    else if (j.action === 'gathering') { await wait(400); gath() }
+    else aiBtns(j.buttons);
+    return j
+  }
   catch (e) { typingOff(t); throw e }
 }
 async function text(t, already) {
   t = String(t).trim(); if (!t) return;
   const hist = already ? H.slice(0, -1) : H.slice();
   if (!already) { me(esc(t)); remember('user', t) }
+  if (/لتدوم|لتدووم|litadoom/i.test(t) && /رابط|تطبيق|حمل|حمّل|تحميل|نزل|نزّل|موقع|لينك|ابليكيشن|app/i.test(t)) return litadoomCard();
   if (PEND) {
     const n = num(t) ?? Object.entries(WORDN).sort((a, b) => b[0].length - a[0].length).find(([w]) => new RegExp('(^|\\s)' + w + '[ةه]?(\\s|$)').test(t))?.[1] ?? null;
     for (const o of PEND.opts) if (o.re.test(t)) { const p = PEND; p.close(); return o.fn(t, n) }
