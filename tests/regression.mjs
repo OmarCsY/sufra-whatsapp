@@ -62,6 +62,8 @@ const CASES = [
   ['أثري 1', 'وش اثري', null, r => r.action === 'impact'],
   ['أثري 2', 'كم وفرت لين الحين', null, r => r.action === 'impact'],
   ['أثري 3', 'ابي ملخص انجازاتي مع سفرة', null, r => r.action === 'impact'],
+  ['لوحة الأسرة 1', 'وين اشوف لوحة اسرتي', null, r => r.action === 'dashboard'],
+  ['لوحة الأسرة 2', 'ابي ارجع لسجل وجباتنا', null, r => ['dashboard', 'impact'].includes(r.action)],
   // صورة وإعادة
   ['صورة', 'كيف ارسل لكم صورة الاكل', null, r => r.action === 'photo'],
   ['إعادة', 'خلنا نبدأ من الاول', null, r => r.action === 'restart'],

@@ -1,6 +1,22 @@
 {
   "functions": {
-    "api/chat.js": { "maxDuration": 60 },
-    "api/analyze.js": { "maxDuration": 60 }
-  }
+    "api/chat.js": {
+      "maxDuration": 60
+    },
+    "api/analyze.js": {
+      "maxDuration": 60
+    },
+    "api/dashboard.js": {
+      "maxDuration": 15
+    },
+    "api/seed.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/d/:token",
+      "destination": "/dashboard.html"
+    }
+  ]
 }

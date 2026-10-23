@@ -56,6 +56,36 @@ function typingOff(t) { t && t.remove(); st.textContent = 'حساب أعمال' 
 const TOUR = { on: false, stop: false };
 const spd = ms => TOUR.on ? Math.round(ms * .45) : ms; // الجولة السريعة تمشي أسرع
 async function bot(html, ms = 900) { const t = typingOn(); await wait(spd(ms)); typingOff(t); them(html) }
+/* ---------- قاعدة بيانات الأسرة: family_id + dash_token في localStorage، والأحداث fire-and-forget ---------- */
+const FAM_KEY = 'sufra.fam.v1';
+let FAM = null, FAM_Q = Promise.resolve();
+const DON = { id: null };
+function famLoad() { try { const j = JSON.parse(localStorage.getItem(FAM_KEY) || 'null'); if (j && j.family_id && j.dash_token) FAM = j } catch (e) {} }
+function famSave() { try { localStorage.setItem(FAM_KEY, JSON.stringify(FAM)) } catch (e) {} }
+const famOff = () => S.tour || TOUR.on || !API.ok;   // الجولة السريعة ما تكتب في بيانات المستخدم
+const famCreds = () => (FAM && !famOff() ? { family_id: FAM.family_id, dash_token: FAM.dash_token } : {});
+function sizeNum() { const t = String(S.size || ''); if (t === '1-3') return 2; if (t === '4-6') return 5; if (t === '7+') return 7; const n = parseInt(t, 10); return n > 0 ? n : null }
+function famSync() {
+  if (famOff()) return FAM_Q;
+  FAM_Q = FAM_Q.then(async () => {
+    const body = { ...(FAM || {}) }, n = sizeNum();
+    if (n) body.household_size = n; if (S.langSet) body.cook_language = S.lang;
+    if (HERE && HERE.city) { body.city = HERE.city; if (isFinite(HERE.lat) && isFinite(HERE.lng)) { body.lat = HERE.lat; body.lng = HERE.lng } }
+    try { const r = await fetch('/api/family', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); if (r.ok) { const j = await r.json(); if (j && j.family_id && j.dash_token) { FAM = { family_id: j.family_id, dash_token: j.dash_token }; famSave() } } } catch (e) {}
+  }).catch(() => {});
+  return FAM_Q;
+}
+function track(type, extra = {}) {
+  if (!FAM || famOff()) return Promise.resolve(null);
+  return fetch('/api/track', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...famCreds(), type, ...extra }), keepalive: true }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+}
+const mid = m => { m = m || S.meal; return (m && m.db_meal_id) || undefined };
+function dashUrl() { return S.tour ? location.origin + '/d/demo' : FAM ? location.origin + '/d/' + FAM.dash_token : null }
+function showDash() { const u = dashUrl(); if (u) linkBtns([[S.tour ? '📊 لوحة أسرة تجريبية' : '📊 لوحة أسرتكم', u, { live: true }]]) }
+async function dashCard() {
+  if (!dashUrl()) return bot('لوحة الأسرة تفتح بعد ما نسجّلكم 🙏 جرّبوا بعد شوي، أو أرسلوا أول صورة.');
+  await bot('📊 هذي <b>لوحة أسرتكم</b>: أرقامكم ووجباتكم وإنجازاتكم في مكان واحد.'); showDash();
+}
 const SOFT_MSG = 'عندنا ضغط حلو 😅 ثواني وجرّب';
 const softErr = e => !!(e && e.api && (!e.status || e.status === 429 || e.status >= 500));
 let PHOTO_BUSY = false;
@@ -136,6 +166,7 @@ async function start(opts = {}) {
     if (mem.city && mem.city.city) HERE = mem.city;
   }
   await Promise.race([healthP, wait(1500)]);
+  famLoad(); famSync();
   day('اليوم');
   note(API.ai
     ? '🔒 نسخة تجريبية من بوت سُفرة. أرسل صورة أكل حقيقية أو رسالة صوتية أو اكتب أي سؤال، والرد من محرك سُفرة.'
@@ -163,6 +194,7 @@ async function askSize(full) {
 const LANGS = [['عربي', /عرب|arab/i], ['English', /english|انجل|إنجل|انقل|إنقل/i], ['Tagalog', /tagalog|filip|فلبين|تاغالوغ|تقالوق/i], ['اردو', /urdu|ارد|أورد|اورد|باكستان/i], ['हिन्दी', /hindi|هند/i], ['বাংলা', /bangla|bengal|بنغال/i], ['Indonesia', /indones|اندونيس|إندونيس/i]];
 async function size(s) {
   if (/^\d+$/.test(s)) { const n = parseInt(s, 10); S.size = n + (n === 1 ? ' فرد' : ' أفراد') } else S.size = s;
+  famSync();
   await askLang(true);
 }
 async function askLang(first) {
@@ -170,7 +202,7 @@ async function askLang(first) {
   btns([['عربي', () => lang('عربي')], ['English', () => lang('English')], ['Tagalog', () => lang('Tagalog')], ['اردو', () => lang('اردو')], ['', t => lang(t), /^(عرب|arab|english|انجل|إنجل|tagalog|filip|فلبين|urdu|ارد|أورد|اورد|hindi|هند|bangla|bengal|بنغال|indones|اندونيس|إندونيس|الفلبيني|الهندي|الانجليزي|الإنجليزي|العربي|الأوردو|الاوردو)/i, 'lang']], true)
 }
 async function lang(l) {
-  const hit = LANGS.find(([n, re]) => n === l || re.test(l)); S.lang = hit ? hit[0] : String(l).trim().slice(0, 20); S.langSet = true;
+  const hit = LANGS.find(([n, re]) => n === l || re.test(l)); S.lang = hit ? hit[0] : String(l).trim().slice(0, 20); S.langSet = true; famSync();
   await bot('ممتاز، جاهزين ✅\nبعد الأكل صوّروا <b>البواقي</b> وأرسلوها هنا 📷\n<span style="color:#667781;font-size:13px">' + (API.ai ? '(تقدرون بعد تكتبون أو ترسلون رسالة صوتية 🎙️ بأي سؤال، أو تكتبون «عزيمة» لو عندكم مناسبة)' : '(اضغط 📷 تحت، أو اكتبوا «عزيمة» لو عندكم مناسبة)') + '</span>');
 }
 
@@ -246,9 +278,9 @@ async function analyzePhoto(dataUrl, alt, tries) {
   const t = typingOn(); let j, err;
   const t7 = setTimeout(() => { st.textContent = 'يحلل الصورة…' }, 7000);
   const t15 = setTimeout(() => { them('لحظات، نحسب الأوزان بدقة ⏳'); chat.appendChild(t); scroll() }, 15000);
-  try { j = await api('/api/analyze', { image: dataUrl.split(',')[1], mime: 'image/jpeg' }, TOUR.on ? 12000 : 60000) } catch (e) { err = e }
+  try { j = await api('/api/analyze', { image: dataUrl.split(',')[1], mime: 'image/jpeg', ...famCreds() }, TOUR.on ? 12000 : 60000) } catch (e) { err = e }
   clearTimeout(t7); clearTimeout(t15); typingOff(t);
-  if (!err) return showResult(j);
+  if (!err) { track('photo', { payload: { via: j && j.via, items: (j && j.items || []).length } }); return showResult(j) }
   if (TOUR.on && alt) return photoScripted(alt, true); // الجولة: نتيجة احتياطية واقعية بدل الانتظار
   if (softErr(err) && tries < 1) {
     them(SOFT_MSG);
@@ -310,6 +342,7 @@ async function renameItem(m, it, t) {
   if (m.dish_name && m.dish_name.includes(old)) m.dish_name = null;
   if (API.ok) { try { const r = await api('/api/analyze', { action: 'price', items: [{ name, grams: it.grams }] }, 15000); const p = r && r.items && r.items[0]; if (p) { it.name = p.name || name; it.value_sar = p.value_sar; it.safe_until = p.safe_until } } catch (e) {} }
   m.total_value_sar = m.items.reduce((s, i) => s + (Number(i.value_sar) || 0), 0);
+  track('item_correction', { meal_id: mid(m), item: old, name: it.name, grams: it.grams, value_sar: it.value_sar, safe_until: it.safe_until });
 }
 async function fixDone(m) {
   const lines = m.items.map(i => `• ${esc(i.name)}: حوالي <b>${Math.round(i.grams)} جم</b> (${SAR(i.value_sar)} ريال)`).join('\n');
@@ -338,6 +371,7 @@ async function photoScripted(p, already) {
 /* ---------- المتابعة ---------- */
 async function fridge() {
   if (S.meal) S.meal.fridge = true;
+  track('fridge', { meal_id: mid() });
   if (S.meal && S.meal.meal_id && API.ok) api('/api/analyze', { action: 'fridge', meal_id: S.meal.meal_id }, 15000).catch(() => {});
   await bot('ممتاز! 👏 سجّلنا إنه دخل الثلاجة، وبنذكّركم بكرة الصبح باللي عندكم.');
   skip('صباح اليوم التالي', morning);
@@ -346,7 +380,7 @@ async function morning() {
   const m = S.meal; if (!m) return bot('ما عندنا وجبة محللة للحين 📷 أرسلوا صورة أول.');
   const names = m.items.map(i => `${esc(i.name)} (${Math.round(i.grams)} جم)`).join(' و'); const sv = Math.max(1, Number(m.servings_left) || 1);
   const rice = m.items.some(i => isRice(i.name));
-  day('اليوم التالي · 11:00 ص');
+  day('اليوم التالي · 11:00 ص'); track('reminder', { payload: { kind: 'morning' } });
   await bot(`صباح الخير ☀️\nعندكم في الثلاجة <b>${names}</b> يكفي تقريبًا <b>${sv}</b>.` + (m.next_day_suggestion ? `\nاقتراح الغداء: <b>${esc(m.next_day_suggestion)}</b> 🍲` : '') + (rice ? '\nوبكذا ما تحتاجون تطبخون رز اليوم.' : ''));
   btns([['تمام، بنسويها 👍', async () => { await bot('بالعافية مقدمًا 🌿'); skip('نهاية مدة الحفظ', closeQ) }], ['عندي سؤال', async () => { await bot(API.ai ? 'تفضّل، اكتب سؤالك أو أرسله بصوتك 🎙️' : 'اكتب سؤالك تحت 👇 (مثال: «كيف أسخّن الرز؟»)') }]]);
 }
@@ -354,9 +388,9 @@ async function closeQ() {
   const m = S.meal; if (!m) return;
   const g = mealG(m), v = SAR(m.total_value_sar), label = m.dish_name || m.items.map(i => i.name).join(' و');
   day('بعد يوم'); await bot(`وش صار على <b>${esc(label)}</b>؟`);
-  btns([['أُكل ✅', async () => { m.status = 'full'; await bot(`ممتاز! 🎉 أنقذتوا <b>${Math.round(g)} جم</b> ووفّرتوا <b>${v} ريال</b>.`); weekly() }, /^(أُ?كل|اكل|انأكل|أكلناه|اكلناه|خلص|انتهى|كله|كامل)/],
-  ['نصفه', async () => { m.status = 'half'; await bot(`حلو 👌 أنقذتوا تقريبًا <b>${Math.round(g / 2)} جم</b> (${Math.round(v / 2)} ريال). المرة الجاية جربوه بطبخة الصبح بدري.`); weekly() }, /^(نص|نصه|بعضه|شوي|جزء)/],
-  ['رُمي 🗑️', async () => { m.status = 'thrown'; await bot('ولا يهمكم 🙏 للتخلص الصحيح: افصلوا الأكل عن البلاستيك والكرتون، وحطوه في كيس محكم.\nوهذا بالضبط اللي بيساعدنا فيه «مقدار» 👇'); weekly() }, /رمي|رميناه|انرمى|زبال|خرب|فسد/]], true);
+  btns([['أُكل ✅', async () => { m.status = 'full'; track('outcome', { meal_id: mid(m), outcome: 'eaten' }); await bot(`ممتاز! 🎉 أنقذتوا <b>${Math.round(g)} جم</b> ووفّرتوا <b>${v} ريال</b>.`); weekly() }, /^(أُ?كل|اكل|انأكل|أكلناه|اكلناه|خلص|انتهى|كله|كامل)/],
+  ['نصفه', async () => { m.status = 'half'; track('outcome', { meal_id: mid(m), outcome: 'half' }); await bot(`حلو 👌 أنقذتوا تقريبًا <b>${Math.round(g / 2)} جم</b> (${Math.round(v / 2)} ريال). المرة الجاية جربوه بطبخة الصبح بدري.`); weekly() }, /^(نص|نصه|بعضه|شوي|جزء)/],
+  ['رُمي 🗑️', async () => { m.status = 'thrown'; track('outcome', { meal_id: mid(m), outcome: 'thrown' }); await bot('ولا يهمكم 🙏 للتخلص الصحيح: افصلوا الأكل عن البلاستيك والكرتون، وحطوه في كيس محكم.\nوهذا بالضبط اللي بيساعدنا فيه «مقدار» 👇'); weekly() }, /رمي|رميناه|انرمى|زبال|خرب|فسد/]], true);
 }
 function weekly() {
   skip('آخر الأسبوع', async () => {
@@ -367,11 +401,13 @@ function weekly() {
     if (w.riceG > 0 && w.cups < .5) { await bot(`📊 <b>مقدار الأسبوع</b>\nما لقينا زيادة واضحة في الرز ${meals} 👌 كمّلوا على نفس الكمية.`); return btns([['🎉 عندنا عزيمة', gath]]) }
     if (w.riceG > 0) {
       await bot(`📊 <b>مقدار الأسبوع</b>\nالرز يزيد عندكم تقريبًا <b>${cupsTxt(w.cups)}</b> في كل وجبة (${meals}).\nالتوصية: قلّلوا كمية الرز <b>${cupsTxt(w.cups)}</b> 🍚`);
+      showDash();
       const cm = await cookMsg(`قلّلوا كمية الرز المطبوخ بمقدار ${cupsTxt(w.cups)} في كل وجبة`, cookFallback(S.lang, w.cups));
       await bot('<img src="cups.jpg" alt="' + cupsTxt(w.cups) + '">رسالة جاهزة للطباخ (' + S.lang + '):\n' + cm, 1100);
     } else {
       const [name, g] = w.top;
       await bot(`📊 <b>مقدار الأسبوع</b>\nأكثر صنف يزيد عندكم هو <b>${esc(name)}</b>: حوالي <b>${Math.round(g)} جم</b> (${meals}).\nالتوصية: قلّلوا كميته شوي في الطبخات الجاية.`);
+      showDash();
       const cm = await cookMsg(`قلّلوا كمية ${name} شوي في الطبخات الجاية`, cookFallback(S.lang, null, name));
       await bot('رسالة جاهزة للطباخ (' + S.lang + '):\n' + cm, 1100);
     }
@@ -385,7 +421,8 @@ async function gath() {
 async function guestsMore() { await bot('حيّاهم الله 🤍 اكتبوا العدد التقريبي 👇'); btns([['', (t, n, n2) => n ? gq(n, n2 || n) : gath(), /\d|[٠-٩]/, 'guests']]) }
 const kg = x => (Math.round(x * 10) / 10).toString();
 async function gq(lo, hi) {
-  hi = hi || lo; const who = lo === hi ? `<b>${lo} ضيف</b>` : `<b>${lo} إلى ${hi} ضيف</b>`;
+  hi = hi || lo; track('gathering', { guests_min: lo, guests_max: hi, rice_kg: Math.round((lo + hi) / 2 * .24 * 10) / 10, meat_kg: Math.round((lo + hi) / 2 * .12 * 10) / 10 });
+  const who = lo === hi ? `<b>${lo} ضيف</b>` : `<b>${lo} إلى ${hi} ضيف</b>`;
   const r = lo === hi ? kg(lo * .24) : `${kg(lo * .24)} – ${kg(hi * .24)}`, m = lo === hi ? kg(lo * .12) : `${kg(lo * .12)} – ${kg(hi * .12)}`;
   await bot(`أبشروا 🤍 المقترح لـ${who}:\n🍚 رز (مطبوخ): تقريبًا <b>${r} كجم</b>\n🍖 لحم: تقريبًا <b>${m} كجم</b>\nمع هامش يحفظ الكرم والضيافة.\n\n💡 قدّموا على دفعات، وخلّوا الباقي في القدور مغطى، عشان لو زاد يصلح للتبرع.`);
   skip('بعد العزيمة', async () => { day('بعد العزيمة · 9:10 م'); await bot('عساها عامرة 🌿 لو بقي أكل، صوّروا القدور وأرسلوها 📷'); btns([['📷 أرسل صورة', openSheet]]) });
@@ -424,7 +461,7 @@ async function charityStart(city) {
   btns([['أقل من ساعتين', () => ageOk(m, go, 'fresh'), /أقل|اقل|نص ساع|دقايق|دقيقة|توه|قبل شوي/], ['من ساعتين لـ4', () => ageOk(m, go, 'mid'), /ساعتين|ثلاث ساعات|3 ساعات|٣ ساعات/], ['أكثر من 4 ساعات', () => ageLate(m, go), /أكثر|اكثر|أربع|اربع|4 ساعات|من الصبح|أمس|امس|بالليل/]]);
 }
 async function ageOk(m, go, k) {
-  if (m) m.ageOk = true;
+  if (m) m.ageOk = true; m.cookedWindow = { fresh: 'أقل من ساعتين', mid: 'من ساعتين لـ4', fridge: 'أكثر من 4 ساعات (بالثلاجة)' }[k];
   if (k === 'mid') await bot('تمام 👌 بس تحركوا بسرعة: الأفضل يوصل للجمعية خلال ساعتين، وخلّوه مغطى.', 900);
   return go();
 }
@@ -468,26 +505,33 @@ function shareLoc() {
     nearest();
   }, () => { typingOff(t); bot('ما قدرنا نوصل لموقعكم 🙏 (يمكن الإذن مقفل)\nاكتبوا اسم مدينتكم 👇').then(() => btns([['', t => cityTyped(t), /.+/, 'city']])) }, { timeout: 12000, maximumAge: 600000 });
 }
-async function nearest() { NEAR = CHARITIES.map(c => ({ ...c, d: km(HERE.lat, HERE.lng, c.lat, c.lng) })).sort((a, b) => a.d - b.d); NI = 0; showCharity() }
+async function nearest() { NEAR = CHARITIES.map(c => ({ ...c, d: km(HERE.lat, HERE.lng, c.lat, c.lng) })).sort((a, b) => a.d - b.d); NI = 0; famSync(); showCharity() }
+function donTrack(c, method, status) {
+  const m = S.meal;
+  return track('donation', { meal_id: mid(m), charity_name: c.name, charity_city: c.city, distance_km: Math.round(c.d), grams: m ? Math.round(mealG(m)) : undefined, cooked_window: m && m.cookedWindow, contact_method: method || undefined, status, donation_id: DON.id || undefined })
+    .then(j => { if (j && j.donation_id) DON.id = j.donation_id });
+}
 function linkBtns(list) {
-  const w = el(`<div class="btns"></div>`); list.forEach(([label, href]) => { const a = document.createElement('a'); a.className = 'lb'; a.textContent = label; a.href = href; a.target = '_blank'; a.rel = 'noopener'; if (S.tour) { a.title = 'معطّل أثناء الجولة'; a.addEventListener('click', ev => ev.preventDefault()) } w.appendChild(a) });
+  const w = el(`<div class="btns"></div>`); list.forEach(([label, href, opt]) => { const a = document.createElement('a'); a.className = 'lb'; a.textContent = label; a.href = href; a.target = '_blank'; a.rel = 'noopener'; if (S.tour && !(opt && opt.live)) { a.title = 'معطّل أثناء الجولة'; a.addEventListener('click', ev => ev.preventDefault()) } else if (typeof opt === 'function') a.addEventListener('click', opt); w.appendChild(a) });
   chat.appendChild(w); const rb = [...chat.querySelectorAll('.row.them .b')].pop(); if (rb) { w.style.width = Math.max(rb.offsetWidth, chat.clientWidth * .6) + 'px'; rb.style.borderBottomLeftRadius = rb.style.borderBottomRightRadius = '0' } scroll();
 }
 async function showCharity() {
   const c = NEAR[NI]; if (!c) return bot('هذي كل الجمعيات المسجلة عندنا للحين 🙏');
+  DON.id = null;
   const d = Math.round(c.d), dist = d < 3 ? 'قريبة منكم' : `تقريبًا ${d} كم${HERE && HERE.city && HERE.city !== c.city ? ' عن ' + HERE.city : ''}`;
   await bot(`${NI ? 'هذي جمعية ثانية' : (d > 150 ? 'للحين ما عندنا جمعية مسجلة في مدينتكم، وهذي أقرب وحدة' : 'أقرب جمعية لكم')} 🤝\n<b>جمعية ${esc(c.name)}</b>\n📍 ${esc(c.city)} · ${dist}\n📞 <span dir="ltr">${c.phones.join(' · ')}</span>\n\n${qtyTxt() ? '🍲 الكمية: ' + esc(qtyTxt()) + '\n' : ''}💡 تواصلوا معهم الحين، والأكل يبقى مغطى لين يوصل المندوب.`, 1100);
   const mob = c.phones.find(p => /^05\d{8}$/.test(p));
   const msgTxt = `السلام عليكم ورحمة الله، عندنا فائض أكل من مناسبة ما تقدّم على السفرة وباقي في القدور${qtyTxt() ? ': ' + qtyTxt() : ''}.${HERE && HERE.city ? ' موقعنا: ' + HERE.city + '.' : ''} هل تقدرون تستلمونه؟ جزاكم الله خير. (وصلنا لكم عن طريق سُفرة)`;
-  const L = [['📞 اتصال', 'tel:' + c.phones[0]]];
-  if (mob) L.push(['💬 مراسلة واتساب', 'https://wa.me/966' + mob.slice(1) + '?text=' + encodeURIComponent(msgTxt)]);
-  L.push(['🗺️ على الخريطة', 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('جمعية ' + c.name + ' ' + c.city)]);
+  const L = [['📞 اتصال', 'tel:' + c.phones[0], () => donTrack(c, 'call', 'contacted')]];
+  if (mob) L.push(['💬 مراسلة واتساب', 'https://wa.me/966' + mob.slice(1) + '?text=' + encodeURIComponent(msgTxt), () => donTrack(c, 'whatsapp', 'contacted')]);
+  L.push(['🗺️ على الخريطة', 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('جمعية ' + c.name + ' ' + c.city), () => donTrack(c, 'map', 'contacted')]);
   linkBtns(L);
   await bot('وإذا تواصلتوا معهم علّمونا 👇', 1400);
   btns([['✅ تواصلنا واتفقنا', donated, /تواصل|اتفق|تم|خلاص|كلمناهم|كلّمناهم/], ['🔄 جمعية ثانية', () => { NI++; showCharity() }, /ثاني|غير|ما رد|مارد|ما ردوا/]]);
 }
 async function donated() {
   const m = S.meal; if (m && !m.donated && !m.status) { m.donated = true; m.donatedG = mealG(m) }
+  if (NEAR[NI]) donTrack(NEAR[NI], null, 'agreed');
   await bot('جزاكم الله خير 🤍 أكلكم بيوصل لأسر محتاجة، وسجّلنا الكمية في أثر أسرتكم هذا الشهر.\n<span class="err">(في المرحلة الجاية يوصل الطلب لنظام الجمعية مباشرة عبر API بدون اتصال)</span>');
   skip('آخر الشهر', monthly);
 }
@@ -498,6 +542,7 @@ async function monthly() {
   if (!ms.n) { await bot('ما عندنا وجبات محللة للحين 📷 أرسلوا لنا صور وجباتكم أول، وبعدها نطلع لكم ملخص شهركم.'); return btns([['📷 أرسل صورة', openSheet]]) }
   const sk = ms.saved / 1000;
   await bot(`📊 <b>ملخص شهركم مع سُفرة</b>\n🍽️ وجبات حللناها: <b>${ms.n}</b>\n💰 وفّرتوا: <b>${SAR(ms.val)} ريال</b>\n🌿 أنقذتوا: <b>${kg(sk)} كجم</b> أكل\n🤝 تبرعتوا: <b>${kg(ms.don / 1000)} كجم</b> لجمعية\n\n📈 توقّع لو استمر نفس النمط شهر كامل: تقريبًا <b>${kg(sk * 4.3)} كجم</b> و<b>${SAR(ms.val * 4.3)} ريال</b>\n🌍 تقريبًا <b>${kg(sk * 2.5)} كجم</b> كربون تجنبتوه (تقديري)` + (sk ? '\n\nكل لقمة تفرق 🌿' : '\n\nما سجلنا أكل أنقذتوه للحين: لما تقولون لنا إنه أُكل أو تبرعتوا فيه ينحسب.'));
+  showDash();
   btns([['📲 أضف إنجازنا في لتدوم', async () => { await bot('هذي الخطوة الجاية في سُفرة 🤝 نقترح على لتدوم إن ملخص شهركم ينضاف تلقائيًا لحسابكم في تطبيق لتدوم، عشان يجتمع وعيكم وأثركم في مكان واحد.\n<span class="err">(ميزة مقترحة، ما هي مفعّلة في هذي النسخة)</span>'); await litadoomCard('وللحين تقدرون تحمّلون تطبيق لتدوم وتتابعون محتواه 👇'); btns([['🔁 ابدأ من جديد', () => start({ fresh: !S.tour })]]) }], ['🔁 ابدأ من جديد', () => start({ fresh: !S.tour })]]);
 }
 
@@ -507,6 +552,7 @@ async function impactCard() {
   if (!s.n) { await bot('ما عندنا وجبات محللة للحين 📷 أرسلوا أول صورة وبنحسب لكم أثركم.'); return btns([['📷 أرسل صورة', openSheet]]) }
   const sk = s.saved / 1000;
   await bot(`📊 <b>أثركم مع سُفرة</b>\n🍽️ وجبات حللناها: <b>${s.n}</b>\n🌿 أنقذتوا: <b>${kg(sk)} كجم</b> أكل\n💰 وفّرتوا: <b>${SAR(s.val)} ريال</b>\n🤝 تبرعتوا: <b>${kg(s.don / 1000)} كجم</b> لجمعية\n🌍 تقريبًا <b>${kg(sk * 2.5)} كجم</b> كربون تجنبتوه (تقديري)`);
+  showDash();
 }
 
 /* ---------- لتدوم ---------- */
@@ -534,6 +580,7 @@ async function askAI(extra, hist) {
     const j = await api('/api/chat', { ...extra, history: hist, profile: prof }, 45000); typingOff(t);
     if (j.reply && j.reply !== '…') them(fmt(j.reply)); else if (!j.action) them('…');
     const A = j.action, jump = () => { if (PEND) PEND.close() };
+    if (A && !['choose', 'answer'].includes(A)) track('chat', { payload: { action: A } });
     if (A === 'litadoom') { const pf = platform(); linkBtns(pf === 'desktop' ? [['🍎 App Store', LTD.ios], ['🤖 Google Play', LTD.android], ['📱 AppGallery', LTD.huawei], ['🌐 موقع لتدوم', LTD.site]] : [['⬇️ حمّل تطبيق لتدوم', LTD[pf]], ['🌐 موقع لتدوم', LTD.site]]) }
     else if (A === 'choose' && p && !p.ai && p.labels[(j.choice || 0) - 1]) { const o = p.labels[j.choice - 1]; p.close(); o[1]() }
     else if (A === 'answer' && p && p.free) { const raw = j.value || extra.text || '', n = j.number ?? parseArNum(raw) ?? parseArNum(extra.text || ''); p.close(); p.free[1](raw, n, j.number2) }
@@ -542,6 +589,7 @@ async function askAI(extra, hist) {
     else if (A === 'photo') { openSheet() }
     else if (A === 'restart') { start({ fresh: !S.tour }) }
     else if (A === 'impact') { jump(); impactCard() }
+    else if (A === 'dashboard') { jump(); dashCard() }
     else aiBtns(j.buttons);
     return j
   }
@@ -576,6 +624,7 @@ function localRoute(t) {
   }
   { const c = /(أنا|انا|احنا|إحنا|ساكن|ساكنين|نسكن|من)\s+(في|ب|بـ)?\s*/.test(t) && CITIES.find(c => c[3].test(t)); if (c) HERE = { lat: c[1], lng: c[2], city: c[0] } }
   if (/أثري|اثري|كم وفر|وفّرت|وفرت|ملخصي|إنجازي|انجازي/.test(t)) return impactCard();
+  if (/لوحة|لوحتي|سجلي|سجل الأسرة|داشبورد|dashboard/i.test(t)) return dashCard();
   if (/(أقرب|اقرب|وين|ابي|أبي|ابغى|أبغى).{0,12}جمعي|أبي أتبرع|ابي اتبرع|ابغى اتبرع|أبغى أتبرع/.test(t)) return charityStart();
   if (/عزيم|ضيوف|مناسبة/.test(t) && t.length < 40) { const n = num(t); return n ? gq(n, n) : gath() }
   legacy(t);
@@ -627,7 +676,7 @@ async function voiceOut(blob, dur, levels) {
   pl.onclick = () => { if (au.paused) { au.play(); pl.innerHTML = PAUSE } else { au.pause(); pl.innerHTML = PLAY } };
   au.ontimeupdate = () => { const p = au.currentTime / (isFinite(au.duration) && au.duration ? au.duration : dur); is.forEach((x, k) => x.classList.toggle('p', k / is.length < p)); du.textContent = fmtDur(au.currentTime) };
   au.onended = () => { pl.innerHTML = PLAY; is.forEach(x => x.classList.remove('p')); du.textContent = fmtDur(dur) };
-  const hist = H.slice(); remember('user', '[رسالة صوتية]');
+  const hist = H.slice(); remember('user', '[رسالة صوتية]'); track('voice', { payload: { seconds: Math.round(dur) } });
   if (!API.ai) return bot('وصلنا صوتك 🎙️ في النسخة المنشورة يسمعه البوت ويرد عليه.\nوتقدرون الحين ترسلون صورة السفرة 📷');
   let payload;
   try { const wav = await toWav(blob); payload = { mime: 'audio/wav', data: await blobToB64(wav) } }
@@ -721,6 +770,7 @@ shade.onclick = closeSheet;
 document.getElementById('menu').onclick = e => { e.stopPropagation(); pop.classList.toggle('on') };
 document.addEventListener('click', () => pop.classList.remove('on'));
 document.getElementById('newChat').onclick = () => { pop.classList.remove('on'); start({ fresh: true }) };
+document.getElementById('dash').onclick = () => { pop.classList.remove('on'); const u = dashUrl(); if (u) window.open(u, '_blank', 'noopener'); else dashCard() };
 document.getElementById('tour').onclick = () => { pop.classList.remove('on'); startTour() };
 buildSamples();
 start();

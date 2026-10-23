@@ -3,7 +3,7 @@ const { gemini, parseJSON } = require('./_gemini');
 const { saudi, limited } = require('./_util');
 
 const KINDS = { size: 'عدد أفراد البيت', lang: 'لغة الشخص اللي يطبخ', guests: 'عدد الضيوف في العزيمة', city: 'اسم مدينة المستخدم', name: 'اسم الصنف أو الطبق الصحيح (اكتبه في value بشكل قصير بالاسم السعودي)' };
-const ACTIONS = ['litadoom', 'charity', 'gathering', 'photo', 'restart', 'choose', 'answer', 'impact'];
+const ACTIONS = ['litadoom', 'charity', 'gathering', 'photo', 'restart', 'choose', 'answer', 'impact', 'dashboard'];
 const SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -77,10 +77,11 @@ function system(p) {
   • photo: يبي يرسل صورة أو يسأل كيف يصوّر.
   • restart: يبي يبدأ من جديد.
   • impact: يسأل عن أثره أو كم وفّر أو ملخصه أو إنجازاته مع سُفرة (بأي صيغة).
+  • dashboard: يبي لوحة أسرته أو سجله أو صفحة أرقامه (بأي صيغة).
   • choose: لما فيه أزرار معلّقة (مذكورة تحت) والمستخدم يجاوب بكلام معناه أحدها: اكتب رقم الزر في "choice". مثال: لو الزر 1 «باقي في القدور» وكتب «محد لمس الأكل» فهذا choose مع choice=1.
   • answer: لما البوت ينتظر إدخال حر (مذكور تحت) والمستخدم أعطاه القيمة بأي صيغة: اكتبها في "value" (العدد في "number"، واللغة باسمها مثل عربي أو English أو Tagalog أو اردو، والمدينة بالعربي مصحّحة).
 - الأرقام بالكلام: فهمها واكتبها رقمًا في "number" (مثل «خمسة» = 5، «عشرين» = 20، «ثلاثين تقريبًا» = 30، «درزن» = 12، «نص مية» = 50، «خمسة وعشرين» = 25).
-- في choose و answer و charity و gathering و restart و impact خلّ "reply" نص فاضي "" لأن التطبيق يكمل الخطوة بنفسه. أما litadoom و photo فاكتب رد قصير جدًا.
+- في choose و answer و charity و gathering و restart و impact و dashboard خلّ "reply" نص فاضي "" لأن التطبيق يكمل الخطوة بنفسه. أما litadoom و photo فاكتب رد قصير جدًا.
 - إذا الرسالة سؤال أو كلام ثاني مو إجابة للسؤال المعلّق (مثل «كيف أسخّن الرز» وهو ينتظر عدد الضيوف): جاوبه عادي بدون action (null)، وذكّره بالسؤال المعلّق. لا تحدد action بس لأن فيه سؤال معلّق؛ حدده فقط لو المستخدم نفسه طلبه أو جاوب عليه.
 
 ${Array.isArray(p.options) && p.options.length ? 'أزرار البوت المعلّقة الحين:\n' + p.options.slice(0, 6).map((o, i) => (i + 1) + ') ' + String(o).slice(0, 40)).join('\n') + '\n\n' : ''}${KINDS[p.kind] ? 'البوت ينتظر إدخال حر: ' + KINDS[p.kind] + '\n\n' : ''}عن الأسرة: عدد الأفراد ${p.size || 'غير محدد'}، لغة الطباخ ${p.lang || 'عربي'}.${p.stats ? '\nسجل الأسرة الحقيقي: ' + String(p.stats).slice(0, 300) + ' (لا تذكر أرقامًا غير هذي).' : ''}${p.meal ? `\nآخر وجبة حللها المحرك: ${String(p.meal).slice(0, 400)}` : ''}

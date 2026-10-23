@@ -42,21 +42,23 @@ function inferDish(items) {
   return null;
 }
 
+function clientIp(req) { return String((req.headers && req.headers['x-forwarded-for']) || (req.socket && req.socket.remoteAddress) || '?').split(',')[0].trim() || '?' }
+
 /* ---------- حد الطلبات: 20 طلب بالدقيقة لكل IP (في الذاكرة) ---------- */
 const hits = new Map();
 function limited(req, res, max = 20) {
-  const ip = String((req.headers && req.headers['x-forwarded-for']) || (req.socket && req.socket.remoteAddress) || '?').split(',')[0].trim() || '?';
+  const key = clientIp(req);
   const now = Date.now();
-  const a = (hits.get(ip) || []).filter(t => now - t < 60000);
+  const a = (hits.get(key) || []).filter(t => now - t < 60000);
   if (a.length >= max) {
-    hits.set(ip, a);
+    hits.set(key, a);
     res.setHeader('retry-after', String(Math.max(1, Math.ceil((60000 - (now - a[0])) / 1000))));
     res.status(429).json({ error: 'rate_limited' });
     return true;
   }
-  a.push(now); hits.set(ip, a);
+  a.push(now); hits.set(key, a);
   if (hits.size > 2000) for (const [k, v] of hits) if (!v.length || now - v[v.length - 1] > 60000) hits.delete(k);
   return false;
 }
 
-module.exports = { saudi, dish, inferDish, limited };
+module.exports = { saudi, dish, inferDish, limited, clientIp };

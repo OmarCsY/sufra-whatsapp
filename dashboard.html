@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>لوحة أسرتكم · سُفرة</title>
+<meta name="description" content="لوحة أسرتكم في سُفرة: أثركم في حفظ النعمة">
+<meta name="theme-color" content="#6E1E2B">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--wine:#6E1E2B;--wine-d:#521620;--sand:#FBF6EE;--card:#fff;--gold:#B8892E;--ink:#2B2B2B;--mut:#7B6F66;--line:#EADFD0;--sandd:#D9C08A;--warn:#A3243B;--warnbg:#F8E6E8;--tint:#F4EAEA}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--sand);color:var(--ink);font-family:Tajawal,"Segoe UI","Noto Sans Arabic",Tahoma,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh}
+.wrap{max-width:460px;margin:0 auto;padding:0 16px calc(96px + env(safe-area-inset-bottom))}
+header{padding:calc(18px + env(safe-area-inset-top)) 0 12px;display:flex;align-items:center;gap:12px}
+header img{width:62px;height:auto;flex-shrink:0}
+header .t{flex:1;min-width:0}
+header h1{margin:0;font-size:22px;font-weight:800;color:var(--wine);line-height:1.25}
+header .s{font-size:14px;color:var(--mut);margin-top:2px}
+.chip{display:inline-block;background:var(--tint);color:var(--wine);border:1px solid #E6CDD0;border-radius:999px;font-size:12.5px;font-weight:700;padding:3px 10px;white-space:nowrap}
+.demo{margin:0 0 12px;background:#FFF8E8;border:1px solid #EBD7A6;color:#7A5A12;border-radius:12px;padding:9px 12px;font-size:13.5px;line-height:1.5}
+.card{background:var(--card);border-radius:18px;padding:16px;margin:0 0 14px;box-shadow:0 1px 2px rgba(110,30,43,.06),0 4px 14px rgba(110,30,43,.05);animation:up .45s ease both}
+.card h2{margin:0 0 12px;font-size:16.5px;font-weight:800;color:var(--wine);display:flex;align-items:center;gap:7px}
+.card h2 small{font-weight:500;font-size:12.5px;color:var(--mut);margin-inline-start:auto}
+@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.hero{background:linear-gradient(160deg,var(--wine) 0%,var(--wine-d) 100%);color:#fff;text-align:center;padding:22px 16px 18px}
+.hero .lbl{font-size:15px;opacity:.9}
+.hero .big{font-size:60px;font-weight:800;color:#E9C777;line-height:1.1;margin:4px 0 2px;direction:ltr}
+.hero .big small{font-size:22px;font-weight:700;margin-inline-start:6px;color:#fff;opacity:.92}
+.hero .row{display:flex;gap:10px;margin:16px 0 12px}
+.hero .box{flex:1;background:rgba(255,255,255,.1);border-radius:14px;padding:10px 6px}
+.hero .box b{display:block;font-size:22px;font-weight:800;color:#E9C777;direction:ltr}
+.hero .box span{font-size:12.5px;opacity:.88}
+.hero .co2{font-size:13.5px;opacity:.92}
+.ringw{display:flex;align-items:center;gap:16px}
+.ring{width:118px;height:118px;flex-shrink:0}
+.ring text{font-family:inherit}
+.ringw p{margin:0;font-size:14.5px;line-height:1.7;color:var(--ink)}
+.ringw p b{color:var(--wine)}
+.chart{position:relative;direction:ltr}
+.chart svg{width:100%;height:auto;display:block;touch-action:none}
+.tip{position:absolute;top:2px;transform:translate(-50%,0);background:var(--wine);color:#fff;border-radius:10px;padding:6px 10px;font-size:12.5px;line-height:1.5;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;direction:rtl;z-index:2}
+.tip.on{opacity:1}
+.legend{display:flex;gap:16px;font-size:12.5px;color:var(--mut);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px;vertical-align:-1px}
+.list{display:flex;flex-direction:column;gap:8px}
+.it{display:flex;align-items:center;gap:10px;background:var(--sand);border-radius:12px;padding:10px 12px}
+.it .n{flex:1;min-width:0}
+.it .n b{display:block;font-size:15px;font-weight:700}
+.it .n span{font-size:12.5px;color:var(--mut)}
+.it .r{font-size:13px;font-weight:700;color:var(--wine);white-space:nowrap}
+.it.warn{background:var(--warnbg)}
+.it.warn .r{color:var(--warn)}
+.it .ic{font-size:20px;flex-shrink:0}
+.bar{margin:0 0 10px}
+.bar .h{display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px}
+.bar .h b{font-weight:700}
+.bar .h span{color:var(--mut);font-size:13px}
+.bar .tr{height:10px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar .tr i{display:block;height:100%;width:0;background:var(--wine);border-radius:6px;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.bar.gold .tr i{background:var(--gold)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:12px;background:var(--wine);color:#fff;font:inherit;font-weight:700;font-size:15px;padding:11px 16px;cursor:pointer;text-decoration:none}
+.btn.o{background:#fff;color:var(--wine);border:1.5px solid var(--wine)}
+.btn:active{transform:scale(.98)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.rec{background:var(--tint);border-radius:12px;padding:12px;font-size:14.5px;line-height:1.75}
+.rec b{color:var(--wine)}
+.badges{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bd{border-radius:14px;padding:12px 10px;text-align:center;border:1.5px solid var(--line);background:#fff}
+.bd .e{font-size:28px;filter:grayscale(1);opacity:.45}
+.bd b{display:block;font-size:14px;margin:4px 0 2px}
+.bd span{font-size:12px;color:var(--mut)}
+.bd .p{height:5px;background:var(--line);border-radius:3px;margin-top:8px;overflow:hidden}
+.bd .p i{display:block;height:100%;background:var(--sandd)}
+.bd.on{background:var(--wine);border-color:var(--wine);color:#fff}
+.bd.on .e{filter:none;opacity:1}
+.bd.on span{color:#F0DDB0}
+.cmp .v{font-size:14.5px;line-height:1.7;margin:0 0 10px}
+.empty{text-align:center;padding:26px 12px}
+.empty .e{font-size:44px}
+.empty p{margin:8px 0 14px;color:var(--mut);line-height:1.7}
+.note{font-size:13px;color:var(--mut);text-align:center;line-height:1.7;padding:6px 8px 4px}
+.mini{font-size:13px;color:var(--mut);padding:4px 2px}
+.back{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));z-index:5;background:var(--wine);color:#fff;text-decoration:none;font-weight:800;font-size:16px;padding:13px 26px;border-radius:999px;box-shadow:0 6px 20px rgba(110,30,43,.35);white-space:nowrap}
+.sk{background:linear-gradient(90deg,#F1E8DA 25%,#F8F1E6 50%,#F1E8DA 75%);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:18px;height:150px;margin:0 0 14px}
+@keyframes sh{to{background-position:-200% 0}}
+.err{text-align:center;padding:60px 16px}
+.err .e{font-size:54px}
+.err h2{color:var(--wine);margin:10px 0 6px}
+.err p{color:var(--mut);line-height:1.8;margin:0 0 18px}
+@media (prefers-reduced-motion:reduce){.card{animation:none}.bar .tr i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header>
+    <img src="/logo.png" alt="سُفرة">
+    <div class="t"><h1>لوحة أسرتكم</h1><div class="s" id="sub">…</div></div>
+  </header>
+  <div id="main"><div class="sk"></div><div class="sk" style="height:110px"></div><div class="sk" style="height:180px"></div></div>
+</div>
+<a class="back" href="/">💬 ارجع للبوت</a>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const token = decodeURIComponent((location.pathname.match(/^\/d\/([^/?#]+)/) || [])[1] || new URLSearchParams(location.search).get('t') || '');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const f1 = x => (Math.round(x * 10) / 10).toString();
+const LTD = { site: 'https://flwp.gfsa.gov.sa/', ios: 'https://apps.apple.com/app/id6745878156', android: 'https://play.google.com/store/apps/details?id=sa.gov.gfsa.flwp.app', huawei: 'https://appgallery.huawei.com/app/C115643345' };
+const platform = () => { const u = navigator.userAgent || ''; if (/HUAWEI|HONOR|HMSCore|HarmonyOS|HuaweiBrowser/i.test(u)) return 'huawei'; if (/iPhone|iPad|iPod/i.test(u) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'ios'; if (/Android/i.test(u)) return 'android'; return 'desktop' };
+const COOK = {
+  'عربي': x => `قلّلي كمية الرز ${x} في كل وجبة، يعطيك العافية.`,
+  'English': x => `Please cook ${x} cup(s) less rice per meal. Thank you!`,
+  'Tagalog': x => `Magluto po ng ${x} tasa na mas kaunting kanin bawat luto. Salamat!`,
+  'اردو': x => `براہ کرم ہر کھانے میں ${x} کپ چاول کم پکائیں۔ شکریہ!`,
+  'हिन्दी': x => `कृपया हर बार ${x} कप कम चावल पकाएँ। धन्यवाद!`,
+  'বাংলা': x => `অনুগ্রহ করে প্রতিবার ${x} কাপ কম চাল রান্না করুন। ধন্যবাদ!`,
+  'Indonesia': x => `Tolong masak ${x} gelas beras lebih sedikit setiap kali. Terima kasih!`,
+};
+const cupsAr = x => { const w = Math.floor(x), h = x % 1 ? ' ونص' : ''; return x === .5 ? 'نص كوب' : w === 1 ? 'كوب' + h : w === 2 ? 'كوبين' + h : w + ' أكواب' + h };
+
+function countUp(el, to, dec = 0, ms = 1000) {
+  if (reduce || !isFinite(to)) { el.textContent = dec ? to.toFixed(dec) : Math.round(to); return }
+  const t0 = performance.now();
+  const step = t => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3), v = to * e; el.textContent = dec ? v.toFixed(dec) : Math.round(v); if (k < 1) requestAnimationFrame(step) };
+  requestAnimationFrame(step);
+}
+const dayLabel = iso => { const d = new Date(iso), n = new Date(), a = new Date(d.getFullYear(), d.getMonth(), d.getDate()), b = new Date(n.getFullYear(), n.getMonth(), n.getDate()), k = Math.round((b - a) / 864e5); let h = d.getHours(), m = String(d.getMinutes()).padStart(2, '0'); const p = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; const tm = `${h}:${m} ${p}`; return (k <= 0 ? 'اليوم' : k === 1 ? 'أمس' : k < 8 ? `قبل ${k} أيام` : `${d.getDate()}/${d.getMonth() + 1}`) + ' · ' + tm };
+const grams = g => (g >= 1000 ? f1(g / 1000) + ' كجم' : Math.round(g) + ' جم');
+const hoursTxt = h => { if (h < 1) return 'أقل من ساعة'; if (h < 24) return `باقي ${Math.round(h)} ساعة`; const d = Math.floor(h / 24), r = Math.round(h - d * 24); return `باقي ${d === 1 ? 'يوم' : d === 2 ? 'يومين' : d + ' أيام'}` + (r ? ` و${r} ساعة` : '') };
+const OUT = { eaten: ['✅', 'أُكل'], partly_eaten: ['🌓', 'أُكل نصفه'], thrown: ['🗑️', 'رُمي'], donated: ['🤝', 'تبرعتوا فيه'], in_fridge: ['🧊', 'في الثلاجة'], analyzed: ['📷', 'تم تحليله'] };
+
+function ring(p) {
+  const r = 46, c = 2 * Math.PI * r;
+  return `<svg class="ring" viewBox="0 0 120 120" role="img" aria-label="نسبة الإنقاذ ${Math.round(p * 100)}%"><circle cx="60" cy="60" r="${r}" fill="none" stroke="#EADFD0" stroke-width="12"/><circle id="ringc" cx="60" cy="60" r="${r}" fill="none" stroke="#6E1E2B" stroke-width="12" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c}" transform="rotate(-90 60 60)" style="transition:stroke-dashoffset 1.1s cubic-bezier(.2,.8,.2,1)" data-to="${c * (1 - p)}"/><text x="60" y="68" text-anchor="middle" font-size="26" font-weight="800" fill="#6E1E2B" id="ringt">0%</text></svg>`;
+}
+function bars(daily) {
+  const W = 360, H = 150, base = H - 20, top = 8, n = daily.length, gw = (W - 8) / n;
+  const max = Math.max(1, ...daily.map(d => d.grams_left));
+  let s = `<svg viewBox="0 0 ${W} ${H}" id="bars" role="img" aria-label="رسم أعمدة آخر 30 يوم"><line x1="4" y1="${base}" x2="${W - 4}" y2="${base}" stroke="#EADFD0"/>`;
+  daily.forEach((d, i) => {
+    const x = 4 + i * gw, hl = d.grams_left / max * (base - top), hs = Math.min(d.grams_saved, d.grams_left) / max * (base - top);
+    s += `<rect x="${(x + gw * .08).toFixed(1)}" y="${(base - hl).toFixed(1)}" width="${(gw * .38).toFixed(1)}" height="${hl.toFixed(1)}" rx="1.5" fill="#D9C08A"/><rect x="${(x + gw * .54).toFixed(1)}" y="${(base - hs).toFixed(1)}" width="${(gw * .38).toFixed(1)}" height="${hs.toFixed(1)}" rx="1.5" fill="#6E1E2B"/>`;
+  });
+  [0, 14, 29].forEach(i => { const d = new Date(daily[i].day + 'T12:00:00'); s += `<text x="${(4 + i * gw + gw / 2).toFixed(1)}" y="${H - 5}" text-anchor="middle" font-size="10" fill="#7B6F66">${d.getDate()}/${d.getMonth() + 1}</text>` });
+  return s + '</svg>';
+}
+
+function render(D) {
+  const f = D.family, st = D.stats, cityTxt = f.city ? esc(f.city) : '';
+  $('#sub').innerHTML = [cityTxt, f.household_size ? `${f.household_size} أفراد` : '', f.is_demo ? '<span class="chip">أسرة تجريبية</span>' : ''].filter(Boolean).join(' · ') || '&nbsp;';
+  let h = '';
+  if (f.is_demo) h += `<div class="demo">🧪 <b>أسرة تجريبية:</b> بيانات توضيحية للعرض، مو بيانات أسرة حقيقية.</div>`;
+  if (!st.meals_analyzed) {
+    h += `<div class="card empty"><div class="e">📷</div><h2 style="justify-content:center">لوحتكم جاهزة، وتنتظر أول وجبة</h2><p>أرسلوا أول صورة من البوت، وتبدأ أرقامكم وأثركم تظهر هنا.</p><a class="btn" href="/">💬 ارجع للبوت</a></div>`;
+  } else {
+    h += `<div class="card hero"><div class="lbl">أنقذتوا</div><div class="big"><span id="cSaved">0</span><small>كجم</small></div><div class="lbl">من الأكل ما راح للزبالة 🌿</div>
+      <div class="row"><div class="box"><b id="cSar">0</b><span>ريال موفّرة</span></div><div class="box"><b id="cDon">0</b><span>كجم متبرع فيها</span></div><div class="box"><b id="cMeals">0</b><span>وجبة محللة</span></div></div>
+      <div class="co2">🌍 تقريبًا ${f1(D.carbon_kg)} كجم كربون تجنبتوه (تقديري)</div></div>`;
+    const pct = Math.round(D.saved_ratio * 100);
+    h += `<div class="card"><h2>🔄 نسبة الإنقاذ</h2><div class="ringw">${ring(D.saved_ratio)}<p>أنقذتوا <b>${pct}%</b> من البواقي.<br>من <b>${f1(st.kg_leftovers_total)} كجم</b> بواقي، رجعتوا <b>${f1(st.kg_saved)} كجم</b> للاستفادة${st.kg_thrown ? `، ورُمي <b>${f1(st.kg_thrown)} كجم</b>` : ''}.</p></div></div>`;
+    h += `<div class="card"><h2>📈 آخر 30 يوم</h2><div class="chart"><div class="tip" id="tip"></div>${bars(D.daily)}</div><div class="legend"><span><i style="background:#D9C08A"></i>بواقي</span><span><i style="background:#6E1E2B"></i>منقذ</span><span style="margin-inline-start:auto">المس العمود لتفاصيل اليوم</span></div></div>`;
+  }
+  // الثلاجة
+  h += `<div class="card"><h2>🧊 في ثلاجتكم الحين</h2>` + (D.fridge.length
+    ? `<div class="list" id="fridge">` + D.fridge.map(i => `<div class="it" data-su="${esc(i.safe_until)}"><span class="ic">🍽️</span><div class="n"><b>${esc(i.name)}</b><span>${grams(i.grams)}${i.dish_name ? ' · ' + esc(i.dish_name) : ''}</span></div><div class="r"></div></div>`).join('') + '</div>'
+    : `<div class="mini">ما فيه أكل محفوظ حاليًا. لما تقولون للبوت «دخل الثلاجة» يظهر هنا مع عدّاد الصلاحية.</div>`) + `</div>`;
+  // مقدار
+  const lang = f.cook_language || 'عربي', tpl = COOK[lang] || COOK['English'];
+  if (D.maqdar) {
+    const c = D.maqdar.cups, msg = tpl(lang === 'عربي' ? cupsAr(c).replace(/^كوب$/, '1 كوب') : f1(c));
+    h += `<div class="card"><h2>🍚 مقدار <small>توصية من وجباتكم</small></h2><div class="rec">الرز يزيد عندكم تقريبًا <b>${cupsAr(c)}</b> في كل وجبة (متوسط ${D.maqdar.meals} وجبات حللناها).<br>التوصية: قلّلوا كمية الرز <b>${cupsAr(c)}</b>.</div><div class="btns"><button class="btn" id="copyCook">📋 انسخ رسالة الطباخ</button></div><div class="mini" id="cookPrev" style="margin-top:8px">${esc(msg)}</div></div>`;
+    window.__cook = msg;
+  } else if (D.top_items.length) {
+    h += `<div class="card"><h2>🍚 مقدار</h2><div class="rec">للحين ما فيه زيادة رز تستاهل التعديل. أكثر صنف يزيد عندكم: <b>${esc(D.top_items[0].name)}</b>، جرّبوا تنقصون كميته شوي.</div></div>`;
+  }
+  if (D.top_items.length) {
+    const mx = D.top_items[0].grams || 1;
+    h += `<div class="card"><h2>📊 أكثر الأصناف اللي تزيد</h2>` + D.top_items.map(t => `<div class="bar"><div class="h"><b>${esc(t.name)}</b><span>${grams(t.grams)}</span></div><div class="tr"><i data-w="${Math.round(t.grams / mx * 100)}"></i></div></div>`).join('') + `</div>`;
+  }
+  // السجل
+  if (D.meals.length) h += `<div class="card"><h2>🧾 آخر الوجبات</h2><div class="list">` + D.meals.map(m => { const o = OUT[m.status] || OUT.analyzed, nm = m.dish_name || m.items.map(i => i.name).join(' و') || 'وجبة'; return `<div class="it"><span class="ic">${o[0]}</span><div class="n"><b>${esc(nm)}</b><span>${dayLabel(m.created_at)} · ${o[1]}</span></div><div class="r">${grams(m.total_grams || 0)}</div></div>` }).join('') + `</div></div>`;
+  // التبرعات والعزائم
+  const DS = { agreed: 'تم الاتفاق', contacted: 'تم التواصل', no_answer: 'ما ردوا' };
+  if (D.donations.length || D.gatherings.length) {
+    h += `<div class="card"><h2>🤝 التبرعات والعزائم</h2><div class="list">` +
+      D.donations.map(d => `<div class="it"><span class="ic">🤝</span><div class="n"><b>${esc(d.charity_name)}</b><span>${esc(d.charity_city || '')}${d.distance_km ? ' · ' + Math.round(d.distance_km) + ' كم' : ''} · ${DS[d.status] || ''} · ${dayLabel(d.created_at).split(' · ')[0]}</span></div><div class="r">${d.grams ? grams(d.grams) : ''}</div></div>`).join('') +
+      D.gatherings.map(g => `<div class="it"><span class="ic">🎉</span><div class="n"><b>عزيمة ${g.guests_min === g.guests_max ? g.guests_min : g.guests_min + ' - ' + g.guests_max} ضيف</b><span>رز ${f1(g.rice_kg || 0)} كجم · لحم ${f1(g.meat_kg || 0)} كجم · ${dayLabel(g.created_at).split(' · ')[0]}</span></div></div>`).join('') + `</div></div>`;
+  }
+  // الشارات
+  h += `<div class="card"><h2>🏅 إنجازاتكم</h2><div class="badges">` + D.badges.map(b => `<div class="bd${b.earned ? ' on' : ''}"><div class="e">${{ first_donation: '🤝', no_waste_7: '🌿', meals_10: '📷', saved_5kg: '🏆' }[b.id] || '⭐'}</div><b>${esc(b.title)}</b><span>${b.earned ? 'تم ✓' : esc(b.desc)}</span>${b.earned ? '' : `<div class="p"><i style="width:${Math.round(b.progress * 100)}%"></i></div>`}</div>`).join('') + `</div></div>`;
+  // مقارنة المدينة
+  if (D.city_compare) {
+    const c = D.city_compare, mx = Math.max(c.you_leftover_kg, c.avg_leftover_kg, .1), diff = c.avg_leftover_kg ? Math.round((1 - c.you_leftover_kg / c.avg_leftover_kg) * 100) : 0;
+    h += `<div class="card cmp"><h2>🏙️ مقارنة مع ${esc(c.city)}</h2><p class="v">${diff > 0 ? `بواقيكم <b style="color:var(--wine)">أقل ${diff}%</b> من متوسط أسر ${esc(c.city)} 👏` : diff < 0 ? `بواقيكم أعلى ${Math.abs(diff)}% من متوسط أسر ${esc(c.city)}، وفيه مجال نحسّنه معًا 🌱` : `بواقيكم مثل متوسط أسر ${esc(c.city)}`}</p>
+      <div class="bar"><div class="h"><b>أسرتكم</b><span>${f1(c.you_leftover_kg)} كجم</span></div><div class="tr"><i data-w="${Math.round(c.you_leftover_kg / mx * 100)}"></i></div></div>
+      <div class="bar gold"><div class="h"><b>متوسط الأسرة في ${esc(c.city)}</b><span>${f1(c.avg_leftover_kg)} كجم</span></div><div class="tr"><i data-w="${Math.round(c.avg_leftover_kg / mx * 100)}"></i></div></div><div class="mini">من ${c.families} أسر في المدينة (أرقام مجمعة).</div></div>`;
+  }
+  // لتدوم
+  const pf = platform(), L = pf === 'desktop' ? [['🍎 App Store', LTD.ios], ['🤖 Google Play', LTD.android], ['📱 AppGallery', LTD.huawei]] : [[pf === 'ios' ? '⬇️ حمّل من App Store' : pf === 'android' ? '⬇️ حمّل من Google Play' : '⬇️ حمّل من AppGallery', LTD[pf]]];
+  h += `<div class="card"><h2>📲 تطبيق لتدوم</h2><div class="mini" style="margin-bottom:2px">البرنامج الوطني للحد من الفقد والهدر في الغذاء، يرفع الوعي وسُفرة تحوّله لسلوك يومي في بيتكم.</div><div class="btns">${L.map(([t, u]) => `<a class="btn" href="${u}" target="_blank" rel="noopener">${t}</a>`).join('')}<a class="btn o" href="${LTD.site}" target="_blank" rel="noopener">🌐 موقع لتدوم</a></div></div>`;
+  h += `<div class="note">🔒 بياناتكم خاصة بأسرتكم، والمرصد يشوف أرقام مجمعة بدون أسماء.</div>`;
+  $('#main').innerHTML = h;
+
+  if (st.meals_analyzed) {
+    countUp($('#cSaved'), st.kg_saved, 1); countUp($('#cSar'), st.sar_saved); countUp($('#cDon'), st.kg_donated, 1); countUp($('#cMeals'), st.meals_analyzed);
+    const rc = $('#ringc'), rt = $('#ringt'); requestAnimationFrame(() => { rc.style.strokeDashoffset = rc.dataset.to }); countUp({ set textContent(v) { rt.textContent = v + '%' } }, Math.round(D.saved_ratio * 100));
+    const bsvg = $('#bars'), tip = $('#tip'), n = D.daily.length;
+    const show = e => { const r = bsvg.getBoundingClientRect(), k = Math.max(0, Math.min(n - 1, Math.floor((e.clientX - r.left) / r.width * n))), d = D.daily[k], dt = new Date(d.day + 'T12:00:00'); tip.innerHTML = `${dt.getDate()}/${dt.getMonth() + 1}<br>بواقي ${grams(d.grams_left)} · منقذ ${grams(d.grams_saved)}`; tip.style.left = Math.max(70, Math.min(r.width - 70, (k + .5) / n * r.width)) + 'px'; tip.classList.add('on') };
+    bsvg.addEventListener('pointerdown', show); bsvg.addEventListener('pointermove', show); bsvg.addEventListener('pointerleave', () => tip.classList.remove('on')); bsvg.addEventListener('pointerup', () => setTimeout(() => tip.classList.remove('on'), 1800));
+  }
+  document.querySelectorAll('.bar .tr i[data-w]').forEach(i => requestAnimationFrame(() => { i.style.width = i.dataset.w + '%' }));
+  const tick = () => document.querySelectorAll('#fridge .it').forEach(el => { const hl = (Date.parse(el.dataset.su) - Date.now()) / 36e5, r = el.querySelector('.r'); r.textContent = hl <= 0 ? 'انتهت الصلاحية' : (hl < 12 ? '⏳ ' : '') + hoursTxt(hl); el.classList.toggle('warn', hl < 12) });
+  tick(); setInterval(tick, 60000);
+  const cb = $('#copyCook'); if (cb) cb.onclick = async () => { const t = window.__cook; try { await navigator.clipboard.writeText(t) } catch (e) { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy') } catch (e2) {} a.remove() } cb.textContent = '✓ تم النسخ'; setTimeout(() => { cb.textContent = '📋 انسخ رسالة الطباخ' }, 2000) };
+}
+
+function fail(code) {
+  $('#sub').innerHTML = '&nbsp;';
+  $('#main').innerHTML = code === 404
+    ? `<div class="err"><div class="e">🔍</div><h2>ما لقينا هذي اللوحة</h2><p>الرابط غير صحيح أو ناقص. افتحوا اللوحة من البوت عشان يوصلكم الرابط الصحيح.</p><a class="btn" href="/">💬 ارجع للبوت</a></div>`
+    : `<div class="err"><div class="e">😅</div><h2>عندنا ضغط الحين</h2><p>ما قدرنا نحمّل لوحتكم، جرّبوا بعد شوي.</p><button class="btn" onclick="load()">🔁 أعد المحاولة</button></div>`;
+}
+async function load() {
+  if (!token) return fail(404);
+  try {
+    const r = await fetch('/api/dashboard?t=' + encodeURIComponent(token));
+    if (!r.ok) return fail(r.status === 404 ? 404 : 500);
+    render(await r.json());
+  } catch (e) { fail(500) }
+}
+load();
+</script>
+</body>
+</html>

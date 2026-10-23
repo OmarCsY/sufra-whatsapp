@@ -2,25 +2,8 @@
 const { gemini, parseJSON, fetchT } = require('./_gemini');
 const { saudi, dish, inferDish, limited } = require('./_util');
 
-// جدول الأسعار (ريال/كجم) ومدة الحفظ (أيام). الأول المطابق يفوز، فالأخص قبل الأعم.
-const FRUITS = ['تفاح', 'موز', 'برتقال', 'عنب', 'بطيخ', 'شمام', 'فراولة', 'مانجو', 'فواكه', 'فاكهة', 'كرز', 'توت', 'رمان', 'خوخ', 'كمثرى', 'تين'];
-const RULES = [
-  { match: FRUITS, price: 10, days: 3 },
-  { match: ['كنافة', 'بسبوسة', 'كيك', 'لقيمات', 'حلا'], price: 30, days: 3 },
-  { match: ['مرقوق', 'جريش', 'قرصان', 'مطازيز', 'هريس', 'سليق', 'مكرونة'], price: 20, days: 3 },
-  { match: ['تمر'], price: 30, days: 30 },
-  { match: ['رز', 'أرز', 'كبسة', 'مندي', 'مضغوط', 'برياني', 'مقلوبة'], price: 12, days: 1 },
-  { match: ['دجاج'], price: 40, days: 3 },
-  { match: ['لحم', 'كبدة', 'مفطح', 'خروف', 'غنم'], price: 70, days: 3 },
-  { match: ['سمك', 'روبيان'], price: 60, days: 3 },
-  { match: ['سلطة'], price: 15, days: 1 },
-  { match: ['شكشوكة', 'بيض'], price: 15, days: 2 },
-  { match: ['صالونة', 'خضار', 'مرق', 'فول'], price: 15, days: 3 },
-  { match: ['خبز', 'تميس', 'صامولي'], price: 8, days: 2 },
-];
-const DEFAULT_RULE = { price: 15, days: 1 };
-const rule = name => RULES.find(r => r.match.some(k => String(name).includes(k))) || DEFAULT_RULE;
-const LARGE = 10;
+const { priced } = require('./_prices');
+const { db, ready, family } = require('./_db');const LARGE = 10;
 
 const PROMPT = `حلل صورة وجبة الأكل المرفقة (بواقي بعد الأكل أو قدور أو طبق كامل)، وقدّر كل صنف ظاهر ووزنه بالجرام بدقة.
 - سمِّ الأطباق بأسمائها السعودية الشائعة: كبسة، مندي، مضغوط، جريش، قرصان، مرقوق، مطازيز، هريس، سليق، صالونة، مقلوبة، شكشوكة، فول، تميس، كبدة، معصوب.
@@ -45,10 +28,6 @@ const SCHEMA = {
 };
 
 const STATES = ['باقي', 'سليم'];
-function priced(name, grams) {
-  const r = rule(name);
-  return { value_sar: Math.round(grams * r.price / 1000), safe_until: new Date(Date.now() + r.days * 864e5).toISOString() };
-}
 
 function shape(d) {
   const items = (Array.isArray(d.items) ? d.items : []).filter(i => i && i.name && Number(i.grams) > 0).map(i => {
@@ -82,6 +61,34 @@ function clean(j) {
   out.dish_name = j.dish_name ? dish(j.dish_name) : (good.length ? inferDish(good) : null);
   if (j.next_day_suggestion) out.next_day_suggestion = saudi(String(j.next_day_suggestion));
   return out;
+}
+
+// نخزّن الوجبة في قاعدة بيانات الأسرة (لو وصلنا family_id + dash_token). أي فشل هنا ما يأثر على نتيجة التحليل.
+async function store(b, out) {
+  if (!ready() || !b.family_id || !b.dash_token || !out || !Array.isArray(out.items) || !out.items.length) return null;
+  const fam = await family(b.family_id, b.dash_token);
+  if (!fam || fam.is_demo) return null;
+  const items = out.items.filter(i => i && i.name && Number(i.grams) > 0).slice(0, 30);
+  if (!items.length) return null;
+  const meals = await db.insert('meals', {
+    family_id: fam.id, dish_name: out.dish_name ? String(out.dish_name).slice(0, 80) : null, source: 'whatsapp',
+    analyzed_via: String(out.via || '').slice(0, 40) || null, engine_meal_id: out.meal_id ? String(out.meal_id).slice(0, 80) : null,
+    total_grams: Math.round(items.reduce((s, i) => s + Number(i.grams), 0)), total_value_sar: Number(out.total_value_sar) || 0,
+    servings_left: Math.round(Number(out.servings_left) || 0), next_day_suggestion: out.next_day_suggestion ? String(out.next_day_suggestion).slice(0, 200) : null, status: 'analyzed',
+  });
+  const mealId = meals[0].id;
+  await db.insert('meal_items', items.map(i => ({
+    meal_id: mealId, name: String(i.name).slice(0, 40), grams: Math.round(Number(i.grams)),
+    value_sar: i.value_sar != null && isFinite(i.value_sar) ? Number(i.value_sar) : null,
+    safe_until: i.safe_until && !isNaN(Date.parse(i.safe_until)) ? new Date(i.safe_until).toISOString() : null,
+    state: i.state === 'سليم' || i.state === 'باقي' ? i.state : null,
+    confidence: i.confidence != null && isFinite(i.confidence) ? Math.max(0, Math.min(1, Number(i.confidence))) : null,
+  })));
+  return mealId;
+}
+async function finish(res, b, out) {
+  try { const id = await Promise.race([store(b, out), new Promise(r => setTimeout(() => r(null), 6000))]); if (id) out.db_meal_id = id } catch (e) {}
+  return res.status(200).json(out);
 }
 
 module.exports = async (req, res) => {
@@ -122,7 +129,7 @@ module.exports = async (req, res) => {
       const r = await fetchT(url, { method: 'POST', body: fd }, 40000);
       if (r.ok) {
         const j = await r.json();
-        if (j && Array.isArray(j.items)) return res.status(200).json({ ...clean(j), via: 'engine' });
+        if (j && Array.isArray(j.items)) return finish(res, b, { ...clean(j), via: 'engine' });
       }
     } catch (e) {}
   }
@@ -133,7 +140,7 @@ module.exports = async (req, res) => {
       contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mime, data } }, { text: PROMPT }] }],
       generationConfig: { temperature: 0.2, maxOutputTokens: 2048, responseMimeType: 'application/json', responseSchema: SCHEMA },
     }, { timeout: 25000 });
-    return res.status(200).json({ ...shape(parseJSON(text) || { items: [] }), via: 'gemini:' + model });
+    return finish(res, b, { ...shape(parseJSON(text) || { items: [] }), via: 'gemini:' + model });
   } catch (e) {
     return res.status(502).json({ error: String((e && e.message) || e).slice(0, 300) });
   }
