@@ -208,7 +208,7 @@ function render(D) {
     $('#app').innerHTML = `<div class="card empty"><div class="e">🗺️</div><h2 style="justify-content:center">${S.demo ? 'ما فيه بيانات لهذا الفلتر' : 'لا توجد بيانات حقيقية بعد'}</h2><p>${S.demo ? 'جرّبوا فترة أو منطقة ثانية.' : 'ما سجّلت أسر حقيقية وجبات للحين. تقدرون تستعرضون شكل اللوحة ببيانات توضيحية لأسر تجريبية.'}</p><div class="btns" style="justify-content:center">${S.demo ? (S.region ? '<button class="btn" id="clrR"><i data-lucide="x"></i> إلغاء فلتر المنطقة</button>' : '') : '<button class="btn" id="goDemo"><i data-lucide="flask-conical"></i> عرض بيانات توضيحية</button>'}</div></div>`;
     const a = $('#goDemo'); if (a) a.onclick = () => { S.demo = true; reload() }; const b = $('#clrR'); if (b) b.onclick = () => { S.region = ''; reload() }; icons(); return;
   }
-  const daily = D.daily || [], obs = daily.map(d => d.kg_observed), sav = daily.map(d => d.kg_saved), rate = daily.map(d => d.kg_observed ? d.kg_saved / d.kg_observed * 100 : 0);
+  const daily = (D.daily || []).slice(0, -1), obs = daily.map(d => d.kg_observed), sav = daily.map(d => d.kg_saved), rate = daily.map(d => d.kg_observed ? d.kg_saved / d.kg_observed * 100 : 0);
   const crumb = S.region ? `<span class="crumb"><span class="chip">${esc(S.region)}</span><button id="clrReg">إلغاء الفلتر</button></span>` : '';
   const KP = [
     ['users', 'الأسر النشطة', k.families_active, 0, '', `من ${f0(k.families_total)} أسرة`, null, ''],

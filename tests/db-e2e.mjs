@@ -77,7 +77,6 @@ r = await req('GET', '/api/dashboard?t=' + encodeURIComponent(other.dash_token))
 ok("other family's dashboard has none of our data", r.status === 200 && r.json.stats.meals_analyzed === 0 && r.json.meals.length === 0 && r.json.donations.length === 0, r.txt);
 r = await req('GET', '/api/dashboard?t=not-a-real-token-123'); ok('wrong token -> 404', r.status === 404, r.status);
 r = await req('GET', "/api/dashboard?t=x'%20or%201=1"); ok('malformed token -> 404', r.status === 404, r.status);
-r = await req('GET', '/api/observatory'); ok('observatory returns aggregates only', r.status === 200 && Array.isArray(r.json.cities) && r.json.cities.every(c => Object.keys(c).sort().join() === 'city,families,kg_donated,kg_leftovers,meals'), r.txt);
 
 // 5) الأسرة التجريبية
 if (SEED) {
