@@ -806,7 +806,7 @@ async function step(r) { if (r == null) throw new Error('tour step missing'); aw
 const demoMeal = (rice, chk) => ({ items: [{ name: 'رز', grams: rice, value_sar: Math.round(rice * 12 / 1000), state: 'باقي' }, { name: 'دجاج', grams: chk, value_sar: Math.round(chk * 40 / 1000), state: 'باقي' }], total_value_sar: Math.round(rice * 12 / 1000 + chk * 40 / 1000), servings_left: 3, ts: Date.now() - 3 * 864e5, fridge: true, status: 'full', donated: false, demo: true });
 async function runTour() {
   day('اليوم');
-  note('🎬 جولة سريعة: قصة كاملة بدقيقة تقريبًا. الأزرار تنضغط تلقائيًا، وما يتم أي اتصال أو إرسال حقيقي.');
+  note('🎬 جولة سريعة: قصة كاملة من أول صورة لين ملخص الشهر. الأزرار تنضغط تلقائيًا، وما يتم أي اتصال أو إرسال حقيقي.');
   tstep(1);                                  // الترحيب يظهر دائمًا في أول الجولة، وبعده وقفة 14 ثانية (÷ السرعة) للشرح وللقراءة
   await welcome(); TOUR.auto = true; tbRefresh(); tourSet(14000); await tourHold(); TOUR.auto = false; tbRefresh(); if (TOUR.stop) throw STOP;
   tstep(2);
