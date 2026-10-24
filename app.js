@@ -37,8 +37,8 @@ function markRead() { chat.querySelectorAll('.tk:not(.read)').forEach(x => x.cla
 let last = '';
 function day(t) { last = ''; chat.appendChild(el(`<div class="day">${t}</div>`)); scroll() }
 function note(t) { last = ''; chat.appendChild(el(`<div class="note">${t}</div>`)); scroll() }
-function me(html, cls = '') { const f = last !== 'me' ? ' first' : ''; last = 'me'; const n = el(`<div class="row me${f}"><div class="b ${cls}">${html}<span class="t">${now()} ${TICK}</span></div></div>`); chat.appendChild(n); ding(660); scroll(); setTimeout(markRead, 1200); return n }
-function them(html) { const f = last !== 'them' ? ' first' : ''; last = 'them'; chat.appendChild(el(`<div class="row them${f}"><div class="b">${html}<span class="t">${now()}</span></div></div>`)); remember('model', strip(html)); ding(980); scroll(); memSet() }
+function me(html, cls = '') { if (TOUR.on) tourSet(/\bmedia\b/.test(cls) ? 2000 : 1200); const f = last !== 'me' ? ' first' : ''; last = 'me'; const n = el(`<div class="row me${f}"><div class="b ${cls}">${html}<span class="t">${now()} ${TICK}</span></div></div>`); chat.appendChild(n); ding(660); scroll(); setTimeout(markRead, 1200); return n }
+function them(html) { const f = last !== 'them' ? ' first' : ''; last = 'them'; chat.appendChild(el(`<div class="row them${f}"><div class="b">${html}<span class="t">${now()}</span></div></div>`)); const tx = strip(html); remember('model', tx); if (TOUR.on) tourSet(readMs(tx, html)); ding(980); scroll(); memSet() }
 let PEND = null; // الخيارات المعلّقة: تُقبل بالضغط أو بالكتابة الحرة
 function btns(list, inline, ai) {
   const w = el(`<div class="btns${inline ? ' inline' : ''}" style="--n:${list.filter(x => x[0]).length}"></div>`);
@@ -53,9 +53,15 @@ function btns(list, inline, ai) {
 function skip(label, fn) { const b = el(`<button class="skip">⏩ ${label}</button>`); last = ''; b._fn = fn; b.onclick = () => { b.remove(); fn() }; chat.appendChild(b); scroll() }
 function typingOn() { st.textContent = 'يكتب…'; markRead(); const t = el(`<div class="row them${last !== 'them' ? ' first' : ''}"><div class="b typing"><i></i><i></i><i></i></div></div>`); chat.appendChild(t); scroll(); return t }
 function typingOff(t) { t && t.remove(); st.textContent = 'حساب أعمال' }
-const TOUR = { on: false, stop: false };
-const spd = ms => TOUR.on ? Math.round(ms * .45) : ms; // الجولة السريعة تمشي أسرع
-async function bot(html, ms = 900) { const t = typingOn(); await wait(spd(ms)); typingOff(t); them(html) }
+/* الجولة السريعة: وقت القراءة يُحسب لكل رسالة. rem = الوقت المتبقي (بالمللي ثانية، مقسوم على السرعة) قبل ما تكمل الجولة */
+const TOUR = { on: false, stop: false, paused: false, auto: false, skip: false, rem: 0, speed: 1, log: [] };
+{ const q = parseFloat(new URLSearchParams(location.search).get('tour_speed')); if (q >= .25 && q <= 4) TOUR.speed = q }
+const TOUR_KEY = /رصدنا في السفرة|<b>جمعية |مقدار الأسبوع|ملخص شهركم/;   // نتيجة التحليل، بطاقة الجمعية، ملخص الأسبوع، ملخص الشهر: +2 ثانية
+const readMs = (text, html) => Math.min(9000, Math.max(2500, 1200 + 55 * String(text).length)) + (TOUR_KEY.test(html) ? 2000 : 0);
+const tourSet = ms => { TOUR.rem = ms / TOUR.speed };
+async function tsleep(ms) { while (ms > 0 && !TOUR.stop) { if (TOUR.skip) { TOUR.skip = false; return } await wait(50); if (!TOUR.paused) ms -= 50 } }
+async function tourHold() { while (TOUR.rem > 0 && !TOUR.skip && !TOUR.stop) { await wait(50); if (!TOUR.paused) TOUR.rem -= 50 } TOUR.rem = 0; TOUR.skip = false }
+async function bot(html, ms = 900) { if (TOUR.on) await tourHold(); const t = typingOn(); await (TOUR.on ? tsleep(800 / TOUR.speed) : wait(ms)); typingOff(t); them(html) }
 /* ---------- قاعدة بيانات الأسرة: family_id + dash_token في localStorage، والأحداث fire-and-forget ---------- */
 const FAM_KEY = 'sufra.fam.v1';
 let FAM = null, FAM_Q = Promise.resolve();
@@ -283,7 +289,7 @@ async function analyzePhoto(dataUrl, alt, tries) {
   const t7 = setTimeout(() => { st.textContent = 'يحلل الصورة…' }, 7000);
   const t15 = setTimeout(() => { them('لحظات، نحسب الأوزان بدقة ⏳'); chat.appendChild(t); scroll() }, 15000);
   try { j = await api('/api/analyze', { image: dataUrl.split(',')[1], mime: 'image/jpeg', ...famCreds(), ...gatherCtx() }, TOUR.on ? 12000 : 60000) } catch (e) { err = e }
-  clearTimeout(t7); clearTimeout(t15); typingOff(t);
+  clearTimeout(t7); clearTimeout(t15); if (TOUR.on) await tourHold(); typingOff(t);
   if (!err) { if (j && j.db_meal_id) S.gather = null; track('photo', { payload: { via: j && j.via, items: (j && j.items || []).length } }); return showResult(j) }
   if (TOUR.on && alt) return photoScripted(alt, true); // الجولة: نتيجة احتياطية واقعية بدل الانتظار
   if (softErr(err) && tries < 1) {
@@ -771,38 +777,60 @@ async function toWav(blob) {
 /* ---------- 🎬 الجولة السريعة (وضع العرض) ---------- */
 // تشغّل القصة كاملة بنفس دوال البوت الحقيقية: الضغطات تظهر كأن المستخدم ضغطها، ولا يُرسل أي شي خارجي.
 const STOP = { stop: true };
-const tourStop = el('<button class="skip" style="display:none;position:absolute;top:68px;left:50%;transform:translateX(-50%);z-index:3;margin:0">⏹ إيقاف</button>');
-document.querySelector('.app').appendChild(tourStop);
-tourStop.onclick = () => { TOUR.stop = true; tourStop.textContent = 'جاري الإيقاف…' };
-const tgap = async (ms = 1800) => { await wait(ms); if (TOUR.stop) throw STOP };
+// شريط الجولة: اسم الخطوة وتقدّمها، سرعة 0.75× / 1× / 1.5×، وزر الإيقاف. الضغط على الشريط أو Space = إيقاف مؤقت/متابعة، والسهم ← = الخطوة الجاية
+const TSTEPS = ['مزايا سُفرة', 'عدد الأفراد واللغة', 'تحليل صورة السفرة', 'الثلاجة والتذكير', 'ملخص الأسبوع', 'كميات العزيمة', 'أقرب جمعية للتبرع', 'ملخص الشهر'];
+const tbar = el('<div class="tbar" style="display:none"><div class="tb-row"><span class="tb-lbl"></span><span class="tb-hint"></span><button class="tb-spd" title="سرعة الجولة"></button><button class="tb-stop">⏹ إيقاف</button></div><div class="tb-track"><i></i></div></div>');
+document.querySelector('header').after(tbar);
+const tbLbl = tbar.querySelector('.tb-lbl'), tbHint = tbar.querySelector('.tb-hint'), tbFill = tbar.querySelector('.tb-track i'), tbSpd = tbar.querySelector('.tb-spd'), tourStop = tbar.querySelector('.tb-stop');
+const TSPEEDS = [.75, 1, 1.5];
+const tbRefresh = () => { tbSpd.textContent = TOUR.speed + '×'; tbHint.textContent = TOUR.paused ? '⏸ متوقفة · اضغطوا أو Space للمتابعة' : TOUR.auto ? 'وقفة للشرح · ← أو اضغطوا الشريط للمتابعة' : '' };
+tbSpd.onclick = e => { e.stopPropagation(); TOUR.speed = TSPEEDS.find(v => v > TOUR.speed + 1e-9) || TSPEEDS[0]; tbRefresh() };
+tourStop.onclick = e => { e.stopPropagation(); TOUR.stop = true; TOUR.paused = false; tourStop.textContent = 'جاري الإيقاف…' };
+tbar.onclick = () => { if (!TOUR.on) return; if (TOUR.auto) TOUR.skip = true; else TOUR.paused = !TOUR.paused; tbRefresh() };
+document.addEventListener('keydown', e => {
+  if (!TOUR.on || /^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) return;
+  if (e.code === 'Space') { e.preventDefault(); TOUR.paused = !TOUR.paused; tbRefresh() }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); TOUR.paused = false; TOUR.skip = true; tbRefresh() }
+});
+function tstep(n) {
+  const t = Date.now(), prev = TOUR.log[TOUR.log.length - 1]; if (prev && !prev.t1) prev.t1 = t;
+  TOUR.log.push({ n, name: TSTEPS[n - 1], t0: t }); tbLbl.textContent = n + '/8 · ' + TSTEPS[n - 1]; tbFill.style.width = ((n - 1) / 8 * 100) + '%';
+}
 function tpress(match) {
   const p = PEND, i = p ? p.labels.findIndex(x => x[0].includes(match)) : -1; if (i < 0) return null;
-  const [label, fn] = p.labels[i]; p.close(); me(esc(label)); remember('user', label); return Promise.resolve(fn());
+  const [label, fn] = p.labels[i]; p.close(); me(esc(label)); remember('user', label); return tourHold().then(() => fn());
 }
-function tsay(text, n) { const p = PEND; if (!p || !p.free) return null; p.close(); me(esc(text)); remember('user', text); return Promise.resolve(p.free[1](text, n)) }
+function tsay(text, n) { const p = PEND; if (!p || !p.free) return null; p.close(); me(esc(text)); remember('user', text); return tourHold().then(() => p.free[1](text, n)) }
 function tskip() { const b = [...chat.querySelectorAll('.skip:not(.tourbtn)')].pop(); if (!b || !b._fn) return null; b.remove(); return Promise.resolve(b._fn()) }
-async function step(r, ms) { if (r == null) throw new Error('tour step missing'); await r; await tgap(ms) }
+async function step(r) { if (r == null) throw new Error('tour step missing'); await r; await tourHold(); if (TOUR.stop) throw STOP }
 const demoMeal = (rice, chk) => ({ items: [{ name: 'رز', grams: rice, value_sar: Math.round(rice * 12 / 1000), state: 'باقي' }, { name: 'دجاج', grams: chk, value_sar: Math.round(chk * 40 / 1000), state: 'باقي' }], total_value_sar: Math.round(rice * 12 / 1000 + chk * 40 / 1000), servings_left: 3, ts: Date.now() - 3 * 864e5, fridge: true, status: 'full', donated: false, demo: true });
 async function runTour() {
   day('اليوم');
   note('🎬 جولة سريعة: قصة كاملة بدقيقة تقريبًا. الأزرار تنضغط تلقائيًا، وما يتم أي اتصال أو إرسال حقيقي.');
-  await welcome(); await tgap(4500);
-  await step(tsay('5', 5), 800);
-  await step(tpress('عربي'), 800);
+  tstep(1);                                  // الترحيب يظهر دائمًا في أول الجولة، وبعده وقفة 14 ثانية (÷ السرعة) للشرح وللقراءة
+  await welcome(); TOUR.auto = true; tbRefresh(); tourSet(14000); await tourHold(); TOUR.auto = false; tbRefresh(); if (TOUR.stop) throw STOP;
+  tstep(2);
+  await step(tsay('5', 5));
+  await step(tpress('عربي'));
+  tstep(3);
   await step(sample({ src: 's-kabsa.jpg', alt: 'plate' }));
+  tstep(4);
   await step(tpress('دخل الثلاجة'));
   await step(tskip());                       // صباح اليوم التالي
-  await step(tpress('تمام'), 800);
+  await step(tpress('تمام'));
   await step(tskip());                       // نهاية مدة الحفظ
   await step(tpress('كل ✅'));
+  tstep(5);
   S.meals.unshift(demoMeal(700, 250), demoMeal(700, 250));
   note('🎬 في الجولة نضيف وجبتين تجريبيتين عشان يظهر ملخص الأسبوع');
   await step(tskip());                       // آخر الأسبوع
   await step(tpress('أرسلها للطباخ'));
+  tstep(6);
   await step(tpress('عندنا عزيمة'));
   await step(tsay('25', 25));
   await step(tskip());                       // بعد العزيمة
-  await step(tpress('أرسل صورة'), 900);
+  tstep(7);
+  await step(tpress('أرسل صورة'));
   closeSheet(); S.forceDonate = true;
   await step(sample({ src: 's-pots.jpg', alt: 'pots' }));
   await step(tpress('باقي في القدور'));
@@ -810,16 +838,18 @@ async function runTour() {
   if (PEND && PEND.labels.some(x => x[0].includes('ساعتين'))) await step(tpress('أقل من ساعتين'));
   await step(tsay('عنيزة'));
   await step(tpress('تواصلنا'));
-  await step(tskip(), 500);                  // آخر الشهر
+  tstep(8);
+  await step(tskip());                       // آخر الشهر
 }
 async function startTour() {
   if (TOUR.on) return;
-  TOUR.on = true; TOUR.stop = false; PHOTO_BUSY = false;
+  TOUR.on = true; TOUR.stop = false; TOUR.paused = false; TOUR.auto = false; TOUR.skip = false; TOUR.rem = 0; TOUR.log = []; PHOTO_BUSY = false;
   closeSheet(); pop.classList.remove('on'); if (rec) stopRec(false);
   H = []; S = { size: '', lang: 'عربي', meal: null, meals: [], tour: true }; HERE = null; NEAR = []; NI = 0; PEND = null; chat.innerHTML = ''; last = '';
-  tourStop.textContent = '⏹ إيقاف'; tourStop.style.display = 'flex';
-  try { await runTour() } catch (e) { if (e !== STOP) { console.error(e); note('تعذّر إكمال الجولة 🙏 جرّبوا مرة ثانية من القائمة ⋮') } }
-  TOUR.on = false; tourStop.style.display = 'none';
+  tourStop.textContent = '⏹ إيقاف'; tbFill.style.width = '0'; tbLbl.textContent = ''; tbRefresh(); tbar.style.display = 'block';
+  try { await runTour(); tbFill.style.width = '100%' } catch (e) { if (e !== STOP) { console.error(e); note('تعذّر إكمال الجولة 🙏 جرّبوا مرة ثانية من القائمة ⋮') } }
+  { const l = TOUR.log[TOUR.log.length - 1]; if (l && !l.t1) l.t1 = Date.now() }
+  TOUR.on = false; TOUR.paused = false; TOUR.auto = false; tbar.style.display = 'none';
   if (TOUR.stop) note('⏹ تم إيقاف الجولة، تقدرون تكملون بأنفسكم'); else note('🎬 انتهت الجولة');
 }
 
