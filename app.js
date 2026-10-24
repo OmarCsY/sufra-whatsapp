@@ -783,7 +783,7 @@ const tbar = el('<div class="tbar" style="display:none"><div class="tb-row"><spa
 document.querySelector('header').after(tbar);
 const tbLbl = tbar.querySelector('.tb-lbl'), tbHint = tbar.querySelector('.tb-hint'), tbFill = tbar.querySelector('.tb-track i'), tbSpd = tbar.querySelector('.tb-spd'), tourStop = tbar.querySelector('.tb-stop');
 const TSPEEDS = [.75, 1, 1.5];
-const tbRefresh = () => { tbSpd.textContent = TOUR.speed + '×'; tbHint.textContent = TOUR.paused ? '⏸ متوقفة · اضغطوا أو Space للمتابعة' : TOUR.auto ? 'وقفة للشرح · ← أو اضغطوا الشريط للمتابعة' : '' };
+const tbRefresh = () => { tbSpd.textContent = TOUR.speed + '×'; tbHint.textContent = TOUR.paused ? '⏸ متوقفة · اضغطوا للمتابعة' : TOUR.auto ? 'وقفة للشرح · ← للمتابعة' : '' };
 tbSpd.onclick = e => { e.stopPropagation(); TOUR.speed = TSPEEDS.find(v => v > TOUR.speed + 1e-9) || TSPEEDS[0]; tbRefresh() };
 tourStop.onclick = e => { e.stopPropagation(); TOUR.stop = true; TOUR.paused = false; tourStop.textContent = 'جاري الإيقاف…' };
 tbar.onclick = () => { if (!TOUR.on) return; if (TOUR.auto) TOUR.skip = true; else TOUR.paused = !TOUR.paused; tbRefresh() };
