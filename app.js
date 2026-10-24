@@ -190,7 +190,9 @@ async function welcome() {
   if (!TOUR.on) { const b = el('<button class="skip tourbtn">🎬 جولة سريعة</button>'); b.onclick = () => { b.remove(); startTour() }; chat.appendChild(b); scroll() }
 }
 async function askSize(full) {
-  await bot((full ? 'يا هلا ومرحبا بك في <b>سُفرة</b> 🌷\nنساعدك تحفظ نعمة بيتك وتوفّر، بصورة لسفرتكم بعد الأكل.\n\n' : '') + 'عشان نضبط كميات الطبخ بدقة، <b>كم عدد أفراد البيت؟</b>\n<span class="hint">اختاروا أو اكتبوا العدد</span>', 700);
+  await bot(full
+    ? 'يا هلا ومرحبا بك في <b>سُفرة</b> 🌷\nمساعدك لحفظ النعمة في البيت. وش أقدر أسوي لك:\n\n📷 صوّر بواقي الأكل، وأقولك وزنها وقيمتها ومتى لازم تنأكل\n⏰ أذكّرك باللي في الثلاجة قبل ما يخرب، وأقترح طبخة منه\n🍚 أتعلم من بواقيكم وأقولكم كم تطبخون بالضبط\n🎉 أحسب لك كميات العزايم\n🤝 لو زاد أكل ما تقدّم على السفرة، أوصلك بأقرب جمعية حفظ نعمة\n🎙️ كلّمني كتابة أو بصوتك، وبأي لغة\n\nنبدأ؟ <b>كم عدد أفراد البيت؟</b>\n<span class="hint">اختاروا أو اكتبوا العدد</span>'
+    : 'عشان نضبط كميات الطبخ بدقة، <b>كم عدد أفراد البيت؟</b>\n<span class="hint">اختاروا أو اكتبوا العدد</span>', 700);
   btns([['1 – 3', () => size('1-3')], ['4 – 6', () => size('4-6')], ['7 أو أكثر', () => size('7+')], ['', (t, n) => n ? size(String(n)) : size(t), /\d|[٠-٩]|واحد|اثنين|ثنين|ثلاث|ربع|خمس|ست|سبع|ثمان|تسع|عشر|درزن/, 'size']], true);
 }
 const LANGS = [['عربي', /عرب|arab/i], ['English', /english|انجل|إنجل|انقل|إنقل/i], ['Tagalog', /tagalog|filip|فلبين|تاغالوغ|تقالوق/i], ['اردو', /urdu|ارد|أورد|اورد|باكستان/i], ['हिन्दी', /hindi|هند/i], ['বাংলা', /bangla|bengal|بنغال/i], ['Indonesia', /indones|اندونيس|إندونيس/i]];
@@ -784,13 +786,13 @@ const demoMeal = (rice, chk) => ({ items: [{ name: 'رز', grams: rice, value_sa
 async function runTour() {
   day('اليوم');
   note('🎬 جولة سريعة: قصة كاملة بدقيقة تقريبًا. الأزرار تنضغط تلقائيًا، وما يتم أي اتصال أو إرسال حقيقي.');
-  await welcome(); await tgap(1500);
-  await step(tsay('5', 5));
-  await step(tpress('عربي'));
+  await welcome(); await tgap(4500);
+  await step(tsay('5', 5), 800);
+  await step(tpress('عربي'), 800);
   await step(sample({ src: 's-kabsa.jpg', alt: 'plate' }));
   await step(tpress('دخل الثلاجة'));
   await step(tskip());                       // صباح اليوم التالي
-  await step(tpress('تمام'));
+  await step(tpress('تمام'), 800);
   await step(tskip());                       // نهاية مدة الحفظ
   await step(tpress('كل ✅'));
   S.meals.unshift(demoMeal(700, 250), demoMeal(700, 250));
