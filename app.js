@@ -516,7 +516,7 @@ function shareLoc() {
     nearest();
   }, () => { typingOff(t); bot('ما قدرنا نوصل لموقعكم 🙏 (يمكن الإذن مقفل)\nاكتبوا اسم مدينتكم 👇').then(() => btns([['', t => cityTyped(t), /.+/, 'city']])) }, { timeout: 12000, maximumAge: 600000 });
 }
-async function nearest() { NEAR = CHARITIES.map(c => ({ ...c, d: km(HERE.lat, HERE.lng, c.lat, c.lng) })).sort((a, b) => a.d - b.d); NI = 0; famSync(); showCharity() }
+async function nearest() { NEAR = CHARITIES.map(c => ({ ...c, d: km(HERE.lat, HERE.lng, c.lat, c.lng) })).sort((a, b) => a.d - b.d); NI = 0; famSync(); return showCharity() }
 function donTrack(c, method, status) {
   const m = S.meal;
   return track('donation', { meal_id: mid(m), charity_name: c.name, charity_city: c.city, distance_km: Math.round(c.d), grams: m ? Math.round(mealG(m)) : undefined, cooked_window: m && m.cookedWindow, contact_method: method || undefined, status, donation_id: DON.id || undefined })
