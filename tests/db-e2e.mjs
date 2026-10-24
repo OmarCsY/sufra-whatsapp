@@ -47,7 +47,7 @@ r = await tr({ type: 'outcome', meal_id: M, outcome: 'eaten' }); ok('track outco
 const A2 = (await req('POST', '/api/analyze', { image: img('s-pots.jpg'), mime: 'image/jpeg', ...F })).json, M2 = A2 && A2.db_meal_id;
 ok('second meal stored (pots)', !!M2);
 const g2 = (A2.items || []).reduce((s, i) => s + i.grams, 0);
-r = await tr({ type: 'donation', meal_id: M2, charity_name: 'طعامي لحفظ النعمة', charity_city: 'بريدة', distance_km: 27, grams: g2, cooked_window: 'أقل من ساعتين', contact_method: 'call', status: 'contacted' });
+r = await tr({ type: 'donation', meal_id: M2, charity_name: 'جمعية عنيزة لحفظ النعم', charity_city: 'عنيزة', distance_km: 27, grams: g2, cooked_window: 'أقل من ساعتين', contact_method: 'call', status: 'contacted' });
 const DID = r.json && r.json.donation_id; ok('track donation (contacted)', r.status === 200 && !!DID, r.txt);
 r = await tr({ type: 'donation', meal_id: M2, donation_id: DID, status: 'agreed' }); ok('track donation (agreed) updates same row', r.status === 200 && r.json.donation_id === DID, r.txt);
 r = await tr({ type: 'gathering', guests_min: 25, guests_max: 25, rice_kg: 6, meat_kg: 3 }); ok('track gathering', r.status === 200, r.txt);

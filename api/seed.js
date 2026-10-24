@@ -1,4 +1,4 @@
-// أسر تجريبية للعرض والمرصد (كلها is_demo = true): أسرة العرض dash_token = 'demo' + 60 أسرة موزعة على 8 مدن. محمية بـ SEED_SECRET.
+// أسر تجريبية للعرض والمرصد (كلها is_demo = true): أسرة العرض dash_token = 'demo' + 72 أسرة موزعة على 11 مدينة. محمية بـ SEED_SECRET.
 // POST /api/seed  (هيدر x-seed-secret): يمسح كل بيانات is_demo القديمة ويعيد إنشاءها. بيانات الأسر الحقيقية ما تنلمس.
 const crypto = require('crypto');
 const { limited } = require('./_util');
