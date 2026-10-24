@@ -413,7 +413,7 @@ function weekly() {
       await bot(`📊 <b>مقدار الأسبوع</b>\nالرز يزيد عندكم تقريبًا <b>${cupsTxt(w.cups)}</b> في كل وجبة (${meals}).\nالتوصية: قلّلوا كمية الرز <b>${cupsTxt(w.cups)}</b> 🍚`);
       showDash();
       const cm = await cookMsg(`قلّلوا كمية الرز المطبوخ بمقدار ${cupsTxt(w.cups)} في كل وجبة`, cookFallback(S.lang, w.cups));
-      await bot('<img src="cups.jpg" alt="' + cupsTxt(w.cups) + '">رسالة جاهزة للطباخ (' + S.lang + '):\n' + cm, 1100);
+      await bot('رسالة جاهزة للطباخ (' + S.lang + '):\n' + cm, 1100);
     } else {
       const [name, g] = w.top;
       await bot(`📊 <b>مقدار الأسبوع</b>\nأكثر صنف يزيد عندكم هو <b>${esc(name)}</b>: حوالي <b>${Math.round(g)} جم</b> (${meals}).\nالتوصية: قلّلوا كميته شوي في الطبخات الجاية.`);
