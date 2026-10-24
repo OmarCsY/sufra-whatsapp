@@ -474,7 +474,7 @@ async function charityStart(city) {
   btns([['أقل من ساعتين', () => ageOk(m, go, 'fresh'), /أقل|اقل|نص ساع|دقايق|دقيقة|توه|قبل شوي/], ['من ساعتين لـ4', () => ageOk(m, go, 'mid'), /ساعتين|ثلاث ساعات|3 ساعات|٣ ساعات/], ['أكثر من 4 ساعات', () => ageLate(m, go), /أكثر|اكثر|أربع|اربع|4 ساعات|من الصبح|أمس|امس|بالليل/]]);
 }
 async function ageOk(m, go, k) {
-  if (m) m.ageOk = true; m.cookedWindow = { fresh: 'أقل من ساعتين', mid: 'من ساعتين لـ4', fridge: 'أكثر من 4 ساعات (بالثلاجة)' }[k];
+  if (m) { m.ageOk = true; m.cookedWindow = { fresh: 'أقل من ساعتين', mid: 'من ساعتين لـ4', fridge: 'أكثر من 4 ساعات (بالثلاجة)' }[k] }
   if (k === 'mid') await bot('تمام 👌 بس تحركوا بسرعة: الأفضل يوصل للجمعية خلال ساعتين، وخلّوه مغطى.', 900);
   return go();
 }
