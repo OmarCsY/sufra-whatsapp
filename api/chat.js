@@ -2,6 +2,8 @@
 const { gemini, parseJSON } = require('./_gemini');
 const { saudi, dish, limited } = require('./_util');
 const fsafe = require('./_foodsafety');
+const { ready, family } = require('./_db');
+const F = require('./_fridge');
 
 const KINDS = { size: 'عدد أفراد البيت', lang: 'لغة الشخص اللي يطبخ', guests: 'عدد الضيوف في العزيمة', city: 'اسم مدينة المستخدم', name: 'اسم الصنف أو الطبق الصحيح (اكتبه في value بشكل قصير بالاسم السعودي)' };
 const ACTIONS = ['litadoom', 'charity', 'gathering', 'photo', 'restart', 'choose', 'answer', 'impact', 'dashboard', 'fridge_add', 'fridge_update', 'fridge_list', 'safety_check'];
@@ -74,8 +76,22 @@ function safetyAnswer(data, reply) {
   return { verdict, sources: sources.slice(0, 3), extra: add.join('\n') };
 }
 const posInt = x => (x != null && isFinite(x) && Number(x) > 0 && Number(x) < 100000) ? Math.round(Number(x)) : null;
+// بواقي الثلاجة الصالحة (لو أرسل التطبيق بيانات الأسرة) عشان الوصفات تنبني عليها. أي فشل أو بطء ما يوقف المحادثة
+function fridgeLine(b) {
+  if (!ready() || !b.family_id || !b.dash_token) return Promise.resolve('');
+  const load = (async () => {
+    const fam = await family(b.family_id, b.dash_token);
+    if (!fam) return '';
+    const open = (await F.loadOpen(fam.id)).filter(i => i.hours_left > 0).slice(0, 10);
+    return open.map(i => i.name + (i.grams ? ' ' + Math.round(i.grams) + ' جم' : '') + (i.storage === 'freezer' ? ' (فريزر)' : '')).join('، ');
+  })().catch(() => '');
+  return Promise.race([load, new Promise(r => setTimeout(() => r(''), 2500))]);
+}
+// سؤال «ليش الأكل اللي تقدّم ما ينفع للتبرع؟»: نضمن ذكر المصدر من قاعدة السلامة
+const WHY = /(ليش|ليه|لماذا|لمَ|ليشه|وش السبب|كيف ما|why)/i, DONATE = /(تبرع|تتبرع|نتبرع|جمعي|donat|charit)/i, SERVED = /(تقدم|انقدم|قدمنا|قدمناه|السفرة|سفرة|الصحن|الصحون|served|table|plate)/i;
+const servedWhy = t => { t = String(t || '').replace(/[ً-ْ]/g, ''); return WHY.test(t) && DONATE.test(t) && SERVED.test(t) };
 
-function system(p) {
+function system(p, fridge) {
   const nowKSA = new Date().toLocaleString('ar-SA-u-nu-latn', { timeZone: 'Asia/Riyadh', weekday: 'long', hour: 'numeric', minute: '2-digit' });
   return `أنت «سُفرة»، بوت واتساب سعودي يساعد الأسر تقلل هدر الطعام في البيت. طوّره فريق ذُخر ضمن هاكاثون الفقد والهدر الغذائي.
 
@@ -93,6 +109,7 @@ function system(p) {
   • «يعطيك العافية! الله يتمم عزيمتكم، وعساها عامرة 🌿»
 - تنبيه: الأسلوب والأمثلة أعلاه للرد بالعربي فقط. إذا كتب المستخدم بالإنجليزي أو أي لغة غير العربي ردّ بنفس لغته (وبأسلوب ودود ومختصر)، ولا تردّ بالعربي أبدًا.
 - لا تخترع أرقامًا أبدًا: الأوزان والقيم والأثر تجي من الوجبات المحللة فقط، وإذا ما فيه بيانات قل للمستخدم يرسل صورة.
+- استثناء: مقادير الوصفات مو أرقام هدر، فاكتبها بأرقام عادية (جرام، كوب، ملعقة، حبة).
 
 وش تسوي سُفرة:
 - المستخدم يصوّر بواقي الوجبة ويرسلها هنا، ومحرك سُفرة يقدّر الأصناف والوزن والقيمة ومدة الحفظ. لا تخترع أوزانًا أو أسعارًا بدون صورة؛ اطلب منه يرسل صورة (زر 📷 تحت).
@@ -100,6 +117,14 @@ function system(p) {
 - «مقدار»: يتعلم من بواقي الأسرة ويقترح كمية الطبخ المناسبة (مثل 5 أكواب رز بدل 6) ويجهز رسالة للطباخ بلغته.
 - العزائم: تقدير تقريبي للشخص: ربع كيلو رز مطبوخ و120 جم لحم، مع هامش يحفظ الكرم. ونصيحة: قدّموا على دفعات وخلّوا الباقي في القدور مغطى عشان يصلح للتبرع لو زاد.
 - الفائض اللي باقي في القدور وما تقدّم على السفرة يُتبرع فيه لجمعيات حفظ النعمة. الأكل اللي تقدّم على السفرة ما يصلح للتبرع لسلامة الغذاء، يُحفظ في البيت ويُستخدم.
+- لو سأل ليش الأكل اللي تقدّم على السفرة ما ينفع للتبرع حتى لو نظيف أو ما انلمس: وضّح بلطف وبدون لوم إن الأكل اللي انقدّم يتعرض للتلوث (أيادي وملاعق وقرب من الناس ووقت برا التبريد) حتى لو شكله نظيف، وإن الجمعيات تستقبل الأكل اللي ما انقدّم (الباقي في القدور) حفاظًا على سلامة المستفيدين. اذكر المصدر: قاعدة السلامة في سُفرة المبنية على إرشادات الهيئة العامة للغذاء والدواء. واقترح بسطر إنه يستفيد منه في البيت (يبرّده بسرعة أو يسوي منه طبخة). هذا سؤال توضيح: action = none.
+
+الوصفات:
+- لو طلب وصفة أو طبخة (من بواقيه أو بمقادير ذكرها): أعطه الوصفة مباشرة في نفس الرد بدون ما ترجع تسأله: سطر فيه اسم الطبخة، ثم المقادير بأرقام (كل مقدار بسطر يبدأ بـ•) مناسبة لعدد الأشخاص اللي ذكره، وإلا لعدد أفراد البيت، ثم من 3 إلى 5 خطوات قصيرة مرقمة (1. 2. 3.).
+- ابنِ الوصفة على المقادير اللي ذكرها، وإلا على بواقي ثلاجته (الأقرب انتهاءً أولًا) وآخر وجبة حللها المحرك (مذكورة تحت)، وكمّل بأشياء موجودة عادة في البيت (بصل، زيت، بهارات...).
+- لو فيها بواقي مطبوخة نبّه في الخطوات إنها تتسخن لين 75°م ومرة وحدة بس، ولا تستخدم شي انتهت مدته.
+- لا تسأل إلا لو طلبه غامض جدًا (مثل «عطني وصفة» بدون أي مقادير ولا بواقي معروفة)، وحتى وقتها أعطه اقتراح أولي كامل بنفس الشكل، ثم سؤال واحد قصير بالآخر.
+- الوصفة مستثناة من حد الخمسة أسطر (لين 14 سطر تقريبًا). action = none.
 
 ${fsafe.promptBlock()}
 
@@ -143,7 +168,7 @@ ${fsafe.promptBlock()}
 - في choose و answer و charity و gathering و restart و impact و dashboard و fridge_add و fridge_update و fridge_list خلّ "reply" نص فاضي "" لأن التطبيق يكمل الخطوة بنفسه. أما litadoom و photo فاكتب رد قصير جدًا.
 - إذا الرسالة سؤال أو كلام ثاني مو إجابة للسؤال المعلّق (مثل «كيف أسخّن الرز» وهو ينتظر عدد الضيوف): جاوبه عادي بدون action (null)، وذكّره بالسؤال المعلّق. لا تحدد action بس لأن فيه سؤال معلّق؛ حدده فقط لو المستخدم نفسه طلبه أو جاوب عليه.
 
-${Array.isArray(p.options) && p.options.length ? 'أزرار البوت المعلّقة الحين:\n' + p.options.slice(0, 6).map((o, i) => (i + 1) + ') ' + String(o).slice(0, 40)).join('\n') + '\n\n' : ''}${KINDS[p.kind] ? 'البوت ينتظر إدخال حر: ' + KINDS[p.kind] + '\n\n' : ''}عن الأسرة: عدد الأفراد ${p.size || 'غير محدد'}، لغة الطباخ ${p.lang || 'عربي'}.${p.stats ? '\nسجل الأسرة الحقيقي: ' + String(p.stats).slice(0, 300) + ' (لا تذكر أرقامًا غير هذي).' : ''}${p.meal ? `\nآخر وجبة حللها المحرك: ${String(p.meal).slice(0, 400)}` : ''}
+${Array.isArray(p.options) && p.options.length ? 'أزرار البوت المعلّقة الحين:\n' + p.options.slice(0, 6).map((o, i) => (i + 1) + ') ' + String(o).slice(0, 40)).join('\n') + '\n\n' : ''}${KINDS[p.kind] ? 'البوت ينتظر إدخال حر: ' + KINDS[p.kind] + '\n\n' : ''}عن الأسرة: عدد الأفراد ${p.size || 'غير محدد'}، لغة الطباخ ${p.lang || 'عربي'}.${p.stats ? '\nسجل الأسرة الحقيقي: ' + String(p.stats).slice(0, 300) + ' (لا تذكر أرقامًا غير هذي).' : ''}${p.meal ? `\nآخر وجبة حللها المحرك: ${String(p.meal).slice(0, 400)}` : ''}${fridge ? `\nبواقي الثلاجة الصالحة الحين (الأقرب انتهاءً أولًا): ${String(fridge).slice(0, 400)}` : ''}
 ${p.city ? `مدينة المستخدم: ${String(p.city).slice(0, 40)}\n` : ''}${p.charity ? `أقرب جمعية طلعت له: ${String(p.charity).slice(0, 80)}\n` : ''}${p.pending ? `سؤال البوت المعلّق حاليًا: ${String(p.pending).slice(0, 200)}\n` : ''}الوقت الآن في السعودية: ${nowKSA}.
 
 أرجع JSON فقط بهذا الشكل (action = none لو ما فيه إجراء):
@@ -203,8 +228,9 @@ module.exports = async (req, res) => {
   if (contents[0].role !== 'user') contents.unshift({ role: 'user', parts: [{ text: 'السلام عليكم' }] });
 
   try {
+    const fridge = await fridgeLine(b);
     const { text, model } = await gemini({
-      systemInstruction: { parts: [{ text: system(b.profile || {}) }] },
+      systemInstruction: { parts: [{ text: system(b.profile || {}, fridge) }] },
       contents,
       generationConfig: { temperature: 0.7, maxOutputTokens: 2048, responseMimeType: 'application/json', responseSchema: SCHEMA },
     }, { timeout: 18000 });
@@ -220,6 +246,13 @@ module.exports = async (req, res) => {
     let verdict = null, sources = [];
     if (action === 'safety_check') { const s = safetyAnswer(data || {}, reply === '…' ? '' : reply); verdict = s.verdict; sources = s.sources; if (s.extra) reply = (reply === '…' ? '' : reply + '\n\n') + norm(s.extra) }
     if (!action && (j.action === 'fridge_add' || j.action === 'fridge_update') && reply === '…') reply = 'وضّحوا لي الصنف والكمية أكثر 🙏';
+    if (servedWhy(userText) && reply !== '…') {
+      if (action === 'charity') action = null;
+      if (!action) {
+        if (/[؀-ۿ]/.test(reply) && !/غذاء والدواء|SFDA/.test(reply)) reply += '\n\n(المصدر: قاعدة السلامة في سُفرة، مبنية على إرشادات الهيئة العامة للغذاء والدواء)';
+        sources = [{ name: fsafe.SOURCES.sfda.name, url: fsafe.SOURCES.sfda.url }];
+      }
+    }
     const buttons = Array.isArray(j.buttons) ? j.buttons.filter(x => typeof x === 'string' && x.trim() && x.length <= 28).map(norm).slice(0, 3) : [];
     const transcript = j.transcript && j.transcript !== 'null' ? String(j.transcript).slice(0, 1000) : null;
     const str = (x, n) => x && x !== 'null' ? String(x).slice(0, n) : null;

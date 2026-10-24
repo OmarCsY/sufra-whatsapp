@@ -649,7 +649,7 @@ function aiBtns(list) {
 async function askAI(extra, hist) {
   const t = typingOn(); const p = PEND; const prof = profile();
   try {
-    const j = await api('/api/chat', { ...extra, history: hist, profile: prof }, 45000); typingOff(t);
+    const j = await api('/api/chat', { ...extra, ...famCreds(), history: hist, profile: prof }, 45000); typingOff(t);
     if (j.reply && j.reply !== '…') them(fmt(j.reply)); else if (!j.action) them('…');
     const A = j.action, jump = () => { if (PEND) PEND.close() };
     if (A && !['choose', 'answer'].includes(A)) track('chat', { payload: { action: A } });
@@ -666,7 +666,7 @@ async function askAI(extra, hist) {
     else if (A === 'fridge_update' && j.data) { jump(); await fridgeUpdate({ target: j.data.target, outcome: j.data.outcome, move_to: j.data.move_to }) }
     else if (A === 'fridge_list') { jump(); await fridgeList() }
     else if (A === 'safety_check') { if (j.sources && j.sources.length) linkBtns(j.sources.slice(0, 2).map(x => ['📎 المصدر: ' + x.name, x.url])) }
-    else aiBtns(j.buttons);
+    else { if (j.sources && j.sources.length) linkBtns(j.sources.slice(0, 2).map(x => ['📎 المصدر: ' + x.name, x.url])); aiBtns(j.buttons) }
     return j
   }
   catch (e) { typingOff(t); throw e }
