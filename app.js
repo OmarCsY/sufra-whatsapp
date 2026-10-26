@@ -846,7 +846,7 @@ async function runTour() {
 async function startTour() {
   if (TOUR.on) return;
   TOUR.on = true; TOUR.stop = false; TOUR.paused = false; TOUR.auto = false; TOUR.skip = false; TOUR.rem = 0; TOUR.log = []; PHOTO_BUSY = false;
-  closeSheet(); pop.classList.remove('on'); if (rec) stopRec(false);
+  coachEnd(); closeSheet(); pop.classList.remove('on'); if (rec) stopRec(false);
   H = []; S = { size: '', lang: 'عربي', meal: null, meals: [], tour: true }; HERE = null; NEAR = []; NI = 0; PEND = null; chat.innerHTML = ''; last = '';
   tourStop.textContent = '⏹ إيقاف'; tbFill.style.width = '0'; tbLbl.textContent = ''; tbRefresh(); tbar.style.display = 'block';
   try { await runTour(); tbFill.style.width = '100%' } catch (e) { if (e !== STOP) { console.error(e); note('تعذّر إكمال الجولة 🙏 جرّبوا مرة ثانية من القائمة ⋮') } }
@@ -854,6 +854,94 @@ async function startTour() {
   TOUR.on = false; TOUR.paused = false; TOUR.auto = false; tbar.style.display = 'none';
   if (TOUR.stop) note('⏹ تم إيقاف الجولة، تقدرون تكملون بأنفسكم'); else note('🎬 انتهت الجولة');
 }
+
+/* ---------- 🧭 تعرّف على الأزرار (أول زيارة، وتنعاد من القائمة ⋮) ---------- */
+// خلفية معتمة بفتحة حول الزر الحقيقي وبطاقة شرح بسهم. الضغط على الخلفية ما يسوي شي، والضغط على الزر المضاء = التالي بدون ما يشغّله
+const COACH_KEY = 'sufra_coach_v1';
+const NO_COACH = /[?&](tour|demo)\b/.test(location.search);
+const CSTEPS = [
+  { t: 'القائمة', d: 'من هنا تفتح لوحة أسرتكم، ومرصد سُفرة، والجولة السريعة، ومحادثة جديدة', el: () => pop, on: () => pop.classList.add('on'), off: () => pop.classList.remove('on') },
+  { t: 'الكاميرا', d: 'صوّر صحنك أو بواقي الأكل مباشرة، ونحلله لك', el: () => document.getElementById('cam') },
+  { t: 'المرفقات', d: 'اختر صورة من المعرض، أو جرّب بصورة جاهزة', el: () => document.getElementById('att') },
+  { t: 'رسالة صوتية', d: 'اضغط وسجّل سؤالك بصوتك، وبنفهمك', el: () => sendB },
+  { t: 'اكتب أي سؤال', d: 'عن الحفظ، أو الطبخ، أو العزايم، أو أقرب جمعية… وبأي لغة', el: () => msg },
+  { t: 'اختر أو اكتب', d: 'تقدر تضغط الأزرار أو تكتب جوابك بنفسك', el: () => PEND && PEND.w && PEND.w.isConnected ? PEND.w : null }
+];
+let CM = null;
+function coachSeen() { try { return !!localStorage.getItem(COACH_KEY) } catch (e) { return false } }
+function coachMark() { try { localStorage.setItem(COACH_KEY, '1') } catch (e) {} }
+function coachStart() {
+  if (CM || TOUR.on) return;
+  closeSheet(); pop.classList.remove('on'); if (rec) stopRec(false);
+  const steps = CSTEPS.filter(s => s.el()); if (!steps.length) return;
+  const root = el(`<div class="cm"><div class="cm-catch"></div><div class="cm-spot"></div><div class="cm-tip" role="dialog" aria-modal="true" aria-labelledby="cmT" aria-describedby="cmD"><div class="cm-hd"><b id="cmT"></b><span class="cm-dots" aria-hidden="true">${steps.map(() => '<i></i>').join('')}</span></div><p class="cm-tx" id="cmD" aria-live="polite"></p><div class="cm-ft"><button class="cm-skip">تخطي</button><button class="cm-prev">السابق</button><button class="cm-next">التالي</button></div></div></div>`);
+  const q = s => root.querySelector(s);
+  CM = { root, steps, i: -1, spot: q('.cm-spot'), tip: q('.cm-tip'), back: document.activeElement, raf: 0 };
+  root.addEventListener('click', e => e.stopPropagation());          // لا تقفل القائمة المفتوحة في الخطوة الأولى
+  q('.cm-catch').onclick = e => { const t = CM.steps[CM.i].el(), r = t && t.getBoundingClientRect(); if (r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) coachGo(CM.i + 1, 1) };
+  q('.cm-next').onclick = () => coachGo(CM.i + 1, 1);
+  q('.cm-prev').onclick = () => coachGo(CM.i - 1, -1);
+  q('.cm-skip').onclick = coachEnd;
+  document.body.appendChild(root);
+  document.addEventListener('keydown', coachKey, true);
+  addEventListener('resize', coachSoon); addEventListener('orientationchange', coachSoon); addEventListener('scroll', coachSoon, true);
+  if (window.visualViewport) visualViewport.addEventListener('resize', coachSoon);
+  coachGo(0, 1);
+}
+function coachGo(i, dir) {
+  const c = CM; if (!c) return;
+  if (i >= c.steps.length) return coachEnd();
+  if (i < 0) return;
+  const cur = c.steps[c.i]; if (cur && cur.off && i !== c.i) cur.off();
+  const s = c.steps[i]; if (s.on) s.on();
+  const t = s.el();
+  if (!t || !t.getClientRects().length) { if (s.off) s.off(); return dir < 0 && i === 0 ? null : coachGo(i + (dir < 0 ? -1 : 1), dir) }   // الهدف اختفى: نتخطاه
+  c.i = i;
+  c.root.querySelector('#cmT').textContent = s.t; c.root.querySelector('#cmD').textContent = s.d;
+  c.root.querySelectorAll('.cm-dots i').forEach((d, k) => d.classList.toggle('on', k === i));
+  c.root.querySelector('.cm-prev').style.display = i ? '' : 'none';
+  c.root.querySelector('.cm-next').textContent = i === c.steps.length - 1 ? 'يلا نبدأ' : 'التالي';
+  if (t.closest('.chat')) t.scrollIntoView({ block: 'nearest' });
+  coachPlace(); c.root.querySelector('.cm-next').focus({ preventScroll: true });
+}
+function coachPlace() {
+  const c = CM; if (!c) return; const t = c.steps[c.i] && c.steps[c.i].el(); if (!t) return;
+  const r = t.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = innerHeight, p = 6, m = 12, gap = 14;
+  const x = r.left - p, y = r.top - p, w = r.width + 2 * p, h = r.height + 2 * p;
+  Object.assign(c.spot.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px', borderRadius: (Math.abs(w - h) < 4 ? w / 2 : 14) + 'px' });
+  const tip = c.tip, tw = tip.offsetWidth, th = tip.offsetHeight, cx = r.left + r.width / 2;
+  let top, side;
+  if (y + h + gap + th <= vh - m) { top = y + h + gap; side = 'below' }
+  else if (y - gap - th >= m) { top = y - gap - th; side = 'above' }
+  else { top = Math.max(m, vh - th - m); side = 'free' }
+  const left = Math.max(m, Math.min(vw - tw - m, cx - tw / 2));
+  tip.className = 'cm-tip ' + side; tip.style.top = top + 'px'; tip.style.left = left + 'px';
+  tip.style.setProperty('--ax', Math.max(18, Math.min(tw - 18, cx - left)) + 'px');
+}
+function coachSoon() { if (CM && !CM.raf) CM.raf = requestAnimationFrame(() => { if (CM) { CM.raf = 0; coachPlace() } }) }
+function coachKey(e) {
+  if (!CM) return;
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); coachEnd() }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); coachGo(CM.i + 1, 1) }     // RTL: اليسار = التالي
+  else if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); coachGo(CM.i - 1, -1) }
+  else if (e.key === 'Tab') {
+    const f = [...CM.tip.querySelectorAll('button')].filter(b => b.offsetParent), k = f.indexOf(document.activeElement);
+    e.preventDefault(); (f[(k + (e.shiftKey ? -1 : 1) + f.length) % f.length] || f[0]).focus();
+  }
+}
+function coachEnd() {
+  const c = CM; if (!c) return; CM = null; coachMark();
+  const s = c.steps[c.i]; if (s && s.off) s.off();
+  if (c.raf) cancelAnimationFrame(c.raf);
+  document.removeEventListener('keydown', coachKey, true);
+  removeEventListener('resize', coachSoon); removeEventListener('orientationchange', coachSoon); removeEventListener('scroll', coachSoon, true);
+  if (window.visualViewport) visualViewport.removeEventListener('resize', coachSoon);
+  c.root.remove();
+  if (c.back && c.back !== document.body && c.back.tagName !== 'INPUT' && c.back.isConnected) c.back.focus({ preventScroll: true });   // ما نفتح الكيبورد في الجوال
+}
+function coachAuto() { if (NO_COACH || TOUR.on || coachSeen()) return; setTimeout(() => { if (!TOUR.on && !coachSeen()) coachStart() }, 700) }
+// شاشة البداية تختفي أول ما تظهر رسالة الترحيب (أو بعد 900ms من index.html)
+new MutationObserver((_, o) => { if (chat.querySelector('.row.them .b:not(.typing)')) { o.disconnect(); if (window.launchOut) launchOut() } }).observe(chat, { childList: true });
 
 /* ---------- الأحداث ---------- */
 function sendText() { const t = msg.value; msg.value = ''; sendB.classList.remove('on'); text(t) }
@@ -871,9 +959,11 @@ document.getElementById('emo').onclick = () => msg.focus();
 shade.onclick = closeSheet;
 document.getElementById('menu').onclick = e => { e.stopPropagation(); pop.classList.toggle('on') };
 document.addEventListener('click', () => pop.classList.remove('on'));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') pop.classList.remove('on') });
 document.getElementById('newChat').onclick = () => { pop.classList.remove('on'); start({ fresh: true }) };
 document.getElementById('dash').onclick = () => { pop.classList.remove('on'); const u = dashUrl(); if (u) window.open(u, '_blank', 'noopener'); else dashCard() };
 document.getElementById('obs').onclick = () => { pop.classList.remove('on'); window.open('/observatory' + (S.tour ? '?demo=1' : ''), '_blank', 'noopener') };
 document.getElementById('tour').onclick = () => { pop.classList.remove('on'); startTour() };
+document.getElementById('coach').onclick = e => { e.stopPropagation(); pop.classList.remove('on'); coachStart() };
 buildSamples();
-start();
+start().then(coachAuto, e => console.error(e));
